@@ -213,6 +213,8 @@ SingleImagePrediction = SingleImageInferenceResponse
 @dataclass
 class TestEvaluationReport:
     """Authoritative metric structure for the locked outer test set (N=243)."""
+    __test__ = False
+
     dataset_name: str
     total_test_samples: int
     evaluation_timestamp: str
