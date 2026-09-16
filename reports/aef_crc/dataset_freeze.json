@@ -1908,8 +1908,8 @@
     "val/Seborrheic_Dermatitis/PSD_00001822.jpg": "ab4f1e648ae54d784798a638f19daf085f789f565c6b3e740348791fea69e216",
     "val/Seborrheic_Dermatitis/PSD_00001825.jpg": "8a1bbc5705afecd3e12194ac409d3eb55de97a322b9b817476469cd831b191e2"
   },
-  "final_dir": "C:\\Users\\ASUS\\Downloads\\PSD_HP_AEF_CRC_Phase12\\PSD_HP\\output\\06_final_split",
-  "frozen_at": "2026-09-08T19:58:31.459942+00:00",
+  "final_dir": "C:\\Users\\ASUS\\Downloads\\PSD_HP_AEF_CRC_PopuloNet\\PSD_HP\\output\\06_final_split",
+  "frozen_at": "2026-09-16T13:18:33.864239+00:00",
   "hash_scope_ordering": "Alphabetically sorted relative paths (split/class/filename) with '{rel_path}:{file_sha256}'",
   "hashing_algorithm": "SHA-256",
   "metadata_csv_sha256": "606bdb9d5c8f622474ff29e6beb0dfa85d775d31d6dcd8261d6fbc0727d64e16",
