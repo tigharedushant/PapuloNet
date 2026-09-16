@@ -1,0 +1,46 @@
+PSD-HP Dataset Validation Report
+========================================
+
+Dataset: DermNet
+  Path: C:\Users\ASUS\Downloads\PSD_HP_AEF_CRC_Phase12\PSD_HP\datasets\dermnet
+  Status: PASS
+  Class labels found: 6
+    - Psoriasis pictures Lichen Planus and related diseases: 463 readable image(s), 0 corrupted
+    - Lichen_Planus: 251 readable image(s), 0 corrupted
+    - Pityriasis_Rosea: 129 readable image(s), 0 corrupted
+    - Psoriasis: 829 readable image(s), 0 corrupted
+    - Seborrheic_Dermatitis: 85 readable image(s), 0 corrupted
+    - Seborrheic Keratoses and other Benign Tumors: 1714 readable image(s), 0 corrupted
+  Total readable images: 3471
+  Total corrupted images: 0
+
+Dataset: SkinDisNet
+  Path: C:\Users\ASUS\Downloads\PSD_HP_AEF_CRC_Phase12\PSD_HP\datasets\skindisnet
+  Status: PASS
+  Class labels found: 6
+    - Atopic_Dermatitis: 1120 readable image(s), 0 corrupted
+    - Contact_Dermatitis: 7632 readable image(s), 0 corrupted
+    - Eczema: 7456 readable image(s), 0 corrupted
+    - Scabies: 5488 readable image(s), 0 corrupted
+    - Seborrheic_Dermatitis: 1264 readable image(s), 0 corrupted
+    - Tinea_Corporis: 4400 readable image(s), 0 corrupted
+  Total readable images: 27360
+  Total corrupted images: 0
+
+Dataset: Curated32
+  Path: C:\Users\ASUS\Downloads\PSD_HP_AEF_CRC_Phase12\PSD_HP\datasets\curated32
+  Status: PASS
+  Class labels found: 1
+    - 32_CSD: 951 readable image(s), 0 corrupted
+  Total readable images: 951
+  Total corrupted images: 0
+
+Dataset: AtlasISIC31
+  Path: C:\Users\ASUS\Downloads\PSD_HP_AEF_CRC_Phase12\PSD_HP\datasets\atlas_isic31
+  Status: PASS
+  Class labels found: 3
+    - Lichen Planus: 132 readable image(s), 0 corrupted
+    - Pityriasis Rosea: 129 readable image(s), 0 corrupted
+    - Psoriasis: 132 readable image(s), 0 corrupted
+  Total readable images: 393
+  Total corrupted images: 0

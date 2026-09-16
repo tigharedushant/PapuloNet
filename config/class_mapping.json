@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "purpose": "Maps each raw dataset's folder/label names to PSD-HP's four canonical target classes.",
+    "consumed_by": "modules/mapper.py",
+    "special_values": {
+      "EXCLUDE_NOT_TARGET": "Folder exists but is not one of the four target diseases; scanner/extractor must skip it.",
+      "AMBIGUOUS_MERGED": "Folder mixes more than one target disease and needs a disambiguation strategy before extraction (see notes)."
+    },
+    "note_dermnet_canonical_keys": "The four canonical-class keys under 'DermNet' below (Psoriasis, Lichen_Planus, Pityriasis_Rosea, Seborrheic_Dermatitis) are identity mappings consumed by images the DermNetAdapter's per-image filename classifier already resolved to a canonical class directly (e.g. 'psoriasis-scalp-90.jpg'). They are NOT raw on-disk folder names — mapper.py's logic is unchanged; the adapter simply now sometimes hands it a normalized_label that already equals a target class.",
+    "version": "0.3 (adapter-layer + per-image DermNet filename classification + Atlas ISIC31 integration)"
+  },
+  "DermNet": {
+    "Psoriasis pictures Lichen Planus and related diseases": "AMBIGUOUS_MERGED",
+    "Seborrheic Keratoses and other Benign Tumors": "EXCLUDE_NOT_TARGET",
+    "Psoriasis": "Psoriasis",
+    "Lichen_Planus": "Lichen_Planus",
+    "Pityriasis_Rosea": "Pityriasis_Rosea",
+    "Seborrheic_Dermatitis": "Seborrheic_Dermatitis"
+  },
+  "SkinDisNet": {
+    "Seborrheic_Dermatitis": "Seborrheic_Dermatitis",
+    "Atopic_Dermatitis": "EXCLUDE_NOT_TARGET",
+    "Contact_Dermatitis": "EXCLUDE_NOT_TARGET",
+    "Eczema": "EXCLUDE_NOT_TARGET",
+    "Scabies": "EXCLUDE_NOT_TARGET",
+    "Tinea_Corporis": "EXCLUDE_NOT_TARGET"
+  },
+  "Curated32": {
+    "Psoriasis": "Psoriasis",
+    "Lichen_Planus": "Lichen_Planus",
+    "Pityriasis_Rosea": "Pityriasis_Rosea",
+    "Seborrheic_Keratosis": "EXCLUDE_NOT_TARGET"
+  },
+  "AtlasISIC31": {
+    "Psoriasis": "Psoriasis",
+    "Lichen Planus": "Lichen_Planus",
+    "Pityriasis Rosea": "Pityriasis_Rosea",
+    "Seborrheic Keratosis": "EXCLUDE_NOT_TARGET"
+  }
+}

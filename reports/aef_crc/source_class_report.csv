@@ -1,0 +1,9 @@
+source_dataset,class,count
+AtlasISIC31,Lichen_Planus,132
+AtlasISIC31,Pityriasis_Rosea,128
+AtlasISIC31,Psoriasis,132
+DermNet,Lichen_Planus,236
+DermNet,Pityriasis_Rosea,103
+DermNet,Psoriasis,779
+DermNet,Seborrheic_Dermatitis,83
+SkinDisNet,Seborrheic_Dermatitis,306

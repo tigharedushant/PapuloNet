@@ -1,0 +1,35 @@
+PSD-HP Class Mapping Report
+========================================
+
+Total folders resolved: 16
+UNKNOWN (not in class_mapping.json): 1
+
+[AMBIGUOUS_MERGED] — 1 folder(s), 463 image(s)
+    DermNet/Psoriasis pictures Lichen Planus and related diseases (463 images)
+
+[EXCLUDE_NOT_TARGET] — 6 folder(s), 27810 image(s)
+    DermNet/Seborrheic Keratoses and other Benign Tumors (1714 images)
+    SkinDisNet/Atopic_Dermatitis (1120 images)
+    SkinDisNet/Contact_Dermatitis (7632 images)
+    SkinDisNet/Eczema (7456 images)
+    SkinDisNet/Scabies (5488 images)
+    SkinDisNet/Tinea_Corporis (4400 images)
+
+[Lichen_Planus] — 2 folder(s), 383 image(s)
+    DermNet/Lichen_Planus (251 images)
+    AtlasISIC31/Lichen Planus (132 images)
+
+[Pityriasis_Rosea] — 2 folder(s), 258 image(s)
+    DermNet/Pityriasis_Rosea (129 images)
+    AtlasISIC31/Pityriasis Rosea (129 images)
+
+[Psoriasis] — 2 folder(s), 961 image(s)
+    DermNet/Psoriasis (829 images)
+    AtlasISIC31/Psoriasis (132 images)
+
+[Seborrheic_Dermatitis] — 2 folder(s), 1349 image(s)
+    DermNet/Seborrheic_Dermatitis (85 images)
+    SkinDisNet/Seborrheic_Dermatitis (1264 images)
+
+[UNKNOWN] — 1 folder(s), 951 image(s)
+    Curated32/32_CSD (951 images)

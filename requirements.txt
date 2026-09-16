@@ -1,0 +1,26 @@
+# PSD-HP requirements — all 12 stages (Phases 1-5), fully wired.
+
+Pillow>=10.0.0          # image I/O and integrity checks (validator, standardizer, metadata)
+tqdm>=4.66.0             # progress bars during folder scanning (validator)
+pandas>=2.0.0            # tabular report construction (scanner, coverage, statistics)
+openpyxl>=3.1.0          # .xlsx report writing (scan_report, coverage_matrix, dataset_statistics)
+opencv-python>=4.8.0     # blur/resolution quality metrics (quality_assessor)
+imagehash>=4.3.1         # perceptual-hash near-duplicate detection (duplicate_detector)
+numpy>=1.24.0            # array support for OpenCV-based quality checks
+reportlab>=4.0.0         # harmonization_report.pdf generation (report_generator)
+
+# AEF-CRC (modeling layer) — added as needed, phase by phase.
+scikit-learn>=1.3.0      # StratifiedKFold (fold_loader.py, Phase 2), metrics (evaluation.py, Phase 3)
+pytest>=7.4.0             # test suite (tests/)
+scipy>=1.11.0             # McNemar's test (evaluation.py, Phase 3)
+tensorflow>=2.15.0        # EfficientNet-B0 + training (image_loader.py, efficientnet_model.py,
+                          # training.py, Phase 3) — NOT installed/verified in the sandbox this
+                          # project was built in; install in your own (e.g. Colab) environment.
+scikit-image>=0.22.0      # GLCM/LBP/HOG (handcrafted_features.py, Phase 4)
+shap>=0.44.0              # TreeSHAP feature-level explainability (xai_shap.py, Phase 10)
+xgboost>=2.0.0            # optional comparator (fusion.py) — falls back to
+                          # sklearn HistGradientBoostingClassifier if unavailable
+joblib>=1.3.0             # final-model + calibration-handoff artifact persistence
+                          # (calibration_handoff.py, Phase 7) — already an sklearn
+                          # transitive dependency; declared explicitly here since
+                          # this project now imports it directly, not just via sklearn

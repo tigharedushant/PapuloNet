@@ -1,0 +1,13 @@
+split,class,count
+train,Psoriasis,638
+train,Lichen_Planus,258
+train,Pityriasis_Rosea,162
+train,Seborrheic_Dermatitis,352
+val,Psoriasis,137
+val,Lichen_Planus,55
+val,Pityriasis_Rosea,35
+val,Seborrheic_Dermatitis,19
+test,Psoriasis,136
+test,Lichen_Planus,55
+test,Pityriasis_Rosea,34
+test,Seborrheic_Dermatitis,18

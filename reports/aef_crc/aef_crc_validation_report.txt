@@ -1,0 +1,27 @@
+AEF-CRC Phase 1 -- Dataset Validation Report
+==================================================
+
+Total images (final split, all classes): 1899
+
+Split counts:
+  train: 1410
+  val: 246
+  test: 243
+
+Class counts (all splits combined):
+  Lichen_Planus: 368
+  Pityriasis_Rosea: 231
+  Psoriasis: 911
+  Seborrheic_Dermatitis: 389
+
+Imbalance ratio (majority/minority class count): 3.94
+
+Source counts: {'AtlasISIC31': 392, 'DermNet': 1201, 'SkinDisNet': 306}
+
+Image issues found: 0
+
+Integrity check - Orphan files on disk (missing from metadata.csv): 0
+
+Integrity check - Missing disk files (in metadata.csv but absent from final_split): 0
+
+PHASE 1 RESULT: PASSED

@@ -1,0 +1,48 @@
+{
+  "datasets": [
+    {
+      "name": "DermNet",
+      "path": "C:\\Users\\ASUS\\Downloads\\PSD_HP_AEF_CRC_Phase12\\PSD_HP\\datasets\\dermnet",
+      "description": "Kaggle shubhamgoel27/dermnet \u2014 23-class clinical scrape"
+    },
+    {
+      "name": "SkinDisNet",
+      "path": "C:\\Users\\ASUS\\Downloads\\PSD_HP_AEF_CRC_Phase12\\PSD_HP\\datasets\\skindisnet",
+      "description": "Mendeley yj3md44hxg \u2014 6-class clinical set, incl. Seborrheic Dermatitis"
+    },
+    {
+      "name": "Curated32",
+      "path": "C:\\Users\\ASUS\\Downloads\\PSD_HP_AEF_CRC_Phase12\\PSD_HP\\datasets\\curated32",
+      "description": "Mendeley pgd42j3h5c \u2014 32-category clinical/dermoscopic set"
+    },
+    {
+      "name": "AtlasISIC31",
+      "path": "C:\\Users\\ASUS\\Downloads\\PSD_HP_AEF_CRC_Phase12\\PSD_HP\\datasets\\atlas_isic31",
+      "description": "ISIC-derived 31-class atlas \u2014 dataset_root/{train,test}/<class>/, one disease per folder (no filename reclassification needed)"
+    }
+  ],
+  "target_classes": [
+    "Psoriasis",
+    "Lichen_Planus",
+    "Pityriasis_Rosea",
+    "Seborrheic_Dermatitis"
+  ],
+  "supported_extensions": [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".bmp",
+    ".tiff",
+    ".tif",
+    ".webp"
+  ],
+  "image_size": 224,
+  "min_image_dimension": 32,
+  "duplicate_hash_threshold": 5,
+  "blur_variance_threshold": 100.0,
+  "random_seed": 42,
+  "train_ratio": 0.7,
+  "val_ratio": 0.15,
+  "test_ratio": 0.15,
+  "log_level": "INFO"
+}

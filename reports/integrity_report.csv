@@ -1,0 +1,9 @@
+metric,value
+total_records,3414
+final,1899
+rejected,420
+duplicate,632
+review,463
+unaccounted,0
+conflicting,0
+check_passed,True

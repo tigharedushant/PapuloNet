@@ -1,0 +1,6 @@
+fold_id,n_train,n_val,class_weights_json
+0,916,230,"{""Psoriasis"": 0.44901960784313727, ""Lichen_Planus"": 1.1116504854368932, ""Pityriasis_Rosea"": 1.7615384615384615, ""Seborrheic_Dermatitis"": 3.2714285714285714}"
+1,917,229,"{""Psoriasis"": 0.44950980392156864, ""Lichen_Planus"": 1.107487922705314, ""Pityriasis_Rosea"": 1.7771317829457365, ""Seborrheic_Dermatitis"": 3.2288732394366195}"
+2,917,229,"{""Psoriasis"": 0.44950980392156864, ""Lichen_Planus"": 1.107487922705314, ""Pityriasis_Rosea"": 1.7771317829457365, ""Seborrheic_Dermatitis"": 3.2288732394366195}"
+3,917,229,"{""Psoriasis"": 0.4486301369863014, ""Lichen_Planus"": 1.1128640776699028, ""Pityriasis_Rosea"": 1.7634615384615384, ""Seborrheic_Dermatitis"": 3.275}"
+4,917,229,"{""Psoriasis"": 0.4486301369863014, ""Lichen_Planus"": 1.1128640776699028, ""Pityriasis_Rosea"": 1.7634615384615384, ""Seborrheic_Dermatitis"": 3.275}"
