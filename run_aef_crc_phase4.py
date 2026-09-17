@@ -86,7 +86,15 @@ def verify_phase4_preflight(config: PSDConfig) -> Tuple[bool, List[str], Dict]:
                 missing.append(f"4. Phase 3 Winner JSON missing required keys: {f4}")
             elif "representation_id" in winner_data:
                 from modules.experiment_config import representation_id
-                expected_repr = representation_id(config)
+                winner_mode = winner_data.get("preprocessing_mode", "standard")
+                raw_aug = winner_data.get("training_time_augmentation", "false")
+                winner_aug = "true" if str(raw_aug).lower() in ("true", "1") else "false"
+                winner_cfg = dataclasses.replace(
+                    config,
+                    preprocessing_mode=winner_mode,
+                    training_time_augmentation=winner_aug,
+                )
+                expected_repr = representation_id(winner_cfg)
                 if winner_data["representation_id"] != expected_repr:
                     missing.append(
                         f"4. Phase 3 Winner representation_id mismatch: "

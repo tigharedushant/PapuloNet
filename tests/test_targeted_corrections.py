@@ -22,7 +22,7 @@ from typing import Dict
 import pytest
 
 from config.config import PSDConfig
-from modules.evaluation import select_phase3_winner, AggregatedMetrics
+from modules.evaluation import select_phase3_winner, AggregatedMetrics, validate_phase3_winner
 from modules.training import _build_callbacks
 
 
@@ -225,7 +225,7 @@ def test_early_stopping_configurable_and_optional(tmp_path):
 
 
 def test_phase3_quarantine_integrity():
-    """Verify that reports/phase3 is cleanly reset, or if a legacy quarantined winner.json is present, it reflects quarantined status."""
+    """Verify that reports/phase3 is cleanly reset, or if winner.json is present, it is a valid non-quarantined completed Phase 3 winner artifact."""
     config = get_config()
     winner_path = config.aef_crc_phase3_reports_dir / "winner.json"
     if not winner_path.exists():
@@ -233,7 +233,42 @@ def test_phase3_quarantine_integrity():
         return
     data = json.loads(winner_path.read_text(encoding="utf-8"))
 
-    assert data.get("quarantined") is True
-    assert data.get("status") == "LEGACY_QUARANTINED"
-    assert "quarantine_notice" in data
-    assert data.get("winner_experiment_id") == "P3-BASE"
+    # If winner.json exists, it must NOT be a legacy/quarantined artifact
+    assert not data.get("quarantined"), "Stale/quarantined winner.json detected: 'quarantined' must not be True"
+    assert data.get("status") != "LEGACY_QUARANTINED", "Stale/quarantined winner.json detected: status must not be LEGACY_QUARANTINED"
+    assert "quarantine_notice" not in data, "Stale/quarantined winner.json detected: 'quarantine_notice' present"
+
+    # Validate required Phase 3 winner contract fields
+    required_fields = [
+        "run_id",
+        "created_at_utc",
+        "winner",
+        "winner_experiment_id",
+        "selection_metric",
+        "selection_rule",
+        "dataset_freeze_hash",
+        "fold_plan_hash",
+        "preprocessing_mode",
+        "training_time_augmentation",
+        "representation_id",
+        "macro_f1_mean",
+        "macro_f1_std",
+        "folds",
+    ]
+    for field in required_fields:
+        assert field in data, f"Legitimate winner.json missing required contract field '{field}'"
+
+    # Winner experiment ID must be a recognized Phase 3 arm
+    winner_arm = data.get("winner_experiment_id") or data.get("winner")
+    assert winner_arm in ("P3-BASE", "P3-PRE", "P3-AUG"), f"Invalid winner experiment arm: {winner_arm}"
+    assert data.get("winner") == winner_arm
+
+    # Contract integrity checks
+    assert data["folds"] == 5
+    assert isinstance(data["macro_f1_mean"], (int, float))
+    assert 0.0 < data["macro_f1_mean"] <= 1.0
+
+    # Programmatic contract validation when winner artifact directory is present
+    if (config.aef_crc_artifacts_dir / winner_arm).exists():
+        is_valid, errors = validate_phase3_winner(config.aef_crc_phase3_reports_dir, config.aef_crc_artifacts_dir)
+        assert is_valid, f"Phase 3 winner contract validation failed: {errors}"

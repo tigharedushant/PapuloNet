@@ -314,3 +314,30 @@ def test_truthful_hardware_diagnostics():
     if not hw["gpu_available"]:
         assert hw["device"] == "CPU"
         assert "CPU" in hw["details"]
+
+
+# 16. Winner representation_id alignment during preflight check
+def test_winner_representation_id_preflight_alignment(tmp_path):
+    from modules.experiment_config import representation_id
+    winner_dir = tmp_path / "reports" / "phase3"
+    winner_dir.mkdir(parents=True, exist_ok=True)
+
+    # Winner was trained with standard preprocessing and no training augmentation
+    std_cfg = dataclasses.replace(get_config(), preprocessing_mode="standard", training_time_augmentation="false")
+    std_repr = representation_id(std_cfg)
+
+    winner_path = winner_dir / "winner.json"
+    winner_path.write_text(json.dumps({
+        "winner_experiment_id": "P3-BASE",
+        "preprocessing_mode": "standard",
+        "training_time_augmentation": False,
+        "representation_id": std_repr,
+        "macro_f1_mean": 0.7099,
+    }), encoding="utf-8")
+
+    # Caller config has default conditional preprocessing
+    caller_cfg = dataclasses.replace(get_config(), preprocessing_mode="conditional", aef_crc_phase3_reports_dir=winner_dir)
+    ok, missing, winner_data = verify_phase4_preflight(caller_cfg)
+
+    # Must NOT report a representation_id mismatch
+    assert not any("representation_id mismatch" in m for m in missing)
