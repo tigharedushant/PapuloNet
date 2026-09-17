@@ -1,0 +1,22 @@
+feature_set_a,feature_set_b,n01,n10,p_value,p_value_holm,status
+trivial,glcm,229,335,1e-05,0.000137,Significant (p_holm < 0.05)
+trivial,lbp,228,368,0.0,0.0,Significant (p_holm < 0.05)
+trivial,hog,266,366,8.2e-05,0.001068,Significant (p_holm < 0.05)
+trivial,color_lab,250,370,2e-06,2.8e-05,Significant (p_holm < 0.05)
+trivial,glcm_lbp,253,320,0.00583,0.064131,Not Significant
+trivial,combined,302,304,0.967597,1.0,Not Significant
+glcm,lbp,176,210,0.093024,0.65117,Not Significant
+glcm,hog,217,211,0.809025,1.0,Not Significant
+glcm,color_lab,189,203,0.511439,1.0,Not Significant
+glcm,glcm_lbp,153,114,0.020042,0.180377,Not Significant
+glcm,combined,243,139,0.0,2e-06,Significant (p_holm < 0.05)
+lbp,hog,229,189,0.056449,0.451593,Not Significant
+lbp,color_lab,202,182,0.332251,1.0,Not Significant
+lbp,glcm_lbp,164,91,7e-06,9.8e-05,Significant (p_holm < 0.05)
+lbp,combined,268,130,0.0,0.0,Significant (p_holm < 0.05)
+hog,color_lab,216,236,0.371491,1.0,Not Significant
+hog,glcm_lbp,241,208,0.130999,0.785995,Not Significant
+hog,combined,202,104,0.0,1e-06,Significant (p_holm < 0.05)
+color_lab,glcm_lbp,225,172,0.009059,0.090594,Not Significant
+color_lab,combined,264,146,0.0,0.0,Significant (p_holm < 0.05)
+glcm_lbp,combined,199,134,0.000453,0.005435,Significant (p_holm < 0.05)

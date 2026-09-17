@@ -1,0 +1,28 @@
+{
+  "n_success": 1899,
+  "n_failed": 0,
+  "feature_dims": {
+    "glcm": 12,
+    "lbp": 18,
+    "hog": 1296,
+    "color_lab": 6,
+    "combined": 1332
+  },
+  "config": {
+    "glcm_distances": [
+      1,
+      3
+    ],
+    "glcm_levels": 32,
+    "lbp_radius": 2,
+    "lbp_n_points": 16,
+    "lbp_method": "uniform",
+    "hog_pixels_per_cell": 32,
+    "hog_cells_per_block": 2,
+    "hog_orientations": 9,
+    "image_size": 224,
+    "hog_pca_components": 32,
+    "color_feature_enabled": true
+  },
+  "failures": []
+}

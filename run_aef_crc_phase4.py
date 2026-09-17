@@ -498,7 +498,7 @@ def main() -> int:
     # Step 7: 5-Fold Cross-Validation Evaluation
     # -------------------------------------------------------------
     print(f"\n[5-Fold Cross-Validation Evaluation]")
-    print("  Evaluating 6 feature configurations under leak-free train-only normalization & PCA...")
+    print("  Evaluating 7 feature configurations under leak-free train-only normalization & PCA...")
 
     fold_metrics_rows = []
     summary_rows = []
@@ -655,6 +655,11 @@ def main() -> int:
 
     # 5. phase4_manifest.json
     from modules.experiment_config import representation_id
+    freeze_p = config.aef_crc_reports_dir / "dataset_freeze.json"
+    plan_p = config.aef_crc_reports_dir / "fold_plan.csv"
+    freeze_hash = winner_data.get("dataset_freeze_hash") or (hashlib.sha256(freeze_p.read_bytes()).hexdigest() if freeze_p.exists() else None)
+    fold_plan_hash = winner_data.get("fold_plan_hash") or (hashlib.sha256(plan_p.read_bytes()).hexdigest() if plan_p.exists() else None)
+
     manifest_data = {
         "phase": "phase4",
         "run_id": winner_data.get("run_id"),
@@ -662,7 +667,8 @@ def main() -> int:
         "random_seed": config.random_seed,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "status": "CERTIFIED",
-        "dataset_freeze_hash": getattr(verify_result, "freeze_hash", None),
+        "dataset_freeze_hash": freeze_hash,
+        "fold_plan_hash": fold_plan_hash,
         "upstream_contract": {
             "run_id": winner_data.get("run_id"),
             "winner_experiment_id": winner_id,
