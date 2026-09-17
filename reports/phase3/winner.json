@@ -1,0 +1,85 @@
+{
+  "run_id": "AEFCRC_RUN_20260917_142937_096005_09452de9aa37442a8b8d683d6ea59129",
+  "created_at_utc": "2026-09-17T14:29:37.096005+00:00",
+  "winner": "P3-BASE",
+  "selection_metric": "macro_f1",
+  "winner_mean_macro_f1": 0.7099049496316227,
+  "equivalence_margin": 0.005,
+  "folds": 5,
+  "winner_experiment_id": "P3-BASE",
+  "winner_name": "P3-BASE",
+  "selection_direction": "maximize",
+  "selection_rule": "Primary: mean 5-fold validation Macro-F1. If diff <= 0.005 practical-equivalence margin, prefer P3-BASE. Rationale: P3-BASE retained for parsimony. Top candidate P3-AUG Macro-F1 is 0.705752 vs P3-BASE 0.709905 (delta -0.004153 <= 0.005; practically equivalent or inferior).",
+  "dataset_freeze_hash": "8693b303b5ecdf5057652689cf58a8c89d8c45d0a7bde1e0d140df00133d9fc0",
+  "fold_plan_hash": "5d6a8f7e89fc9af9bb5ae4a103670ea595fc32f3d0a55b0e4996800ea9c0a47e",
+  "preprocessing_mode": "standard",
+  "training_time_augmentation": false,
+  "representation_id": "efficientnet_b0_6760c4f151acc2d2",
+  "macro_f1_mean": 0.7099049496316227,
+  "macro_f1_std": 0.018642177546811023,
+  "accuracy_mean": 0.7329599392443515,
+  "accuracy_std": 0.021376066747731275,
+  "balanced_accuracy_mean": 0.7637150743560321,
+  "balanced_accuracy_std": 0.017843179602010824,
+  "mcc_mean": 0.5986832468990844,
+  "mcc_std": 0.03864479159418421,
+  "per_class_f1_mean": {
+    "Psoriasis": 0.782185456777093,
+    "Lichen_Planus": 0.6594380587617883,
+    "Pityriasis_Rosea": 0.7043970469276886,
+    "Seborrheic_Dermatitis": 0.6935992360599206
+  },
+  "per_class_f1_std": {
+    "Psoriasis": 0.026944806092026544,
+    "Lichen_Planus": 0.05047259030862407,
+    "Pityriasis_Rosea": 0.03869789192320377,
+    "Seborrheic_Dermatitis": 0.05972352895125691
+  },
+  "all_experiments": {
+    "P3-BASE": {
+      "macro_f1_mean": 0.7099049496316227,
+      "macro_f1_std": 0.018642177546811023,
+      "accuracy_mean": 0.7329599392443515,
+      "balanced_accuracy_mean": 0.7637150743560321,
+      "mcc_mean": 0.5986832468990844,
+      "per_class_f1_mean": {
+        "Psoriasis": 0.782185456777093,
+        "Lichen_Planus": 0.6594380587617883,
+        "Pityriasis_Rosea": 0.7043970469276886,
+        "Seborrheic_Dermatitis": 0.6935992360599206
+      }
+    },
+    "P3-PRE": {
+      "macro_f1_mean": 0.6344908339389351,
+      "macro_f1_std": 0.028193141844377923,
+      "accuracy_mean": 0.6596810328460224,
+      "balanced_accuracy_mean": 0.6909933696488525,
+      "mcc_mean": 0.49456577770196264,
+      "per_class_f1_mean": {
+        "Psoriasis": 0.7211849426639103,
+        "Lichen_Planus": 0.5856936557484038,
+        "Pityriasis_Rosea": 0.589322619282316,
+        "Seborrheic_Dermatitis": 0.6417621180611103
+      }
+    },
+    "P3-AUG": {
+      "macro_f1_mean": 0.7057516414006338,
+      "macro_f1_std": 0.013932000037565857,
+      "accuracy_mean": 0.7294702866907157,
+      "balanced_accuracy_mean": 0.7598373191455565,
+      "mcc_mean": 0.5934178233706702,
+      "per_class_f1_mean": {
+        "Psoriasis": 0.7793229575594924,
+        "Lichen_Planus": 0.6576643446001935,
+        "Pityriasis_Rosea": 0.6994798807585717,
+        "Seborrheic_Dermatitis": 0.6865393826842776
+      }
+    }
+  },
+  "config": {
+    "random_seed": 42,
+    "backbone": "efficientnet_b0",
+    "image_size": 224,
+    "batch_size": 32
+  }
+}
