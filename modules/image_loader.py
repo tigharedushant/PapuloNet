@@ -81,6 +81,7 @@ def build_dataset(
     training: bool,
     apply_training_time_augmentation: bool,
     class_weights: Optional[Dict[str, float]] = None,
+    batch_size: Optional[int] = None,
 ):
     """Returns a tf.data.Dataset of (image, one_hot_label) batches for
     val/test, or (image, one_hot_label, sample_weight) batches for
@@ -199,7 +200,8 @@ def build_dataset(
         if apply_training_time_augmentation:
             ds = ds.map(_conservative_augment, num_parallel_calls=tf.data.AUTOTUNE)
 
-    ds = ds.batch(config.batch_size)
+    effective_batch_size = batch_size if batch_size is not None else config.batch_size
+    ds = ds.batch(effective_batch_size)
     ds = ds.prefetch(tf.data.AUTOTUNE)
     return ds
 

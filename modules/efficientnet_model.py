@@ -167,7 +167,13 @@ def extract_deep_features(config: PSDConfig, backbone, records, experiment_name:
     target_write_dir = Path(tempfile.mkdtemp(prefix="deep_feat_")) if is_9p else out_dir
     target_write_dir.mkdir(parents=True, exist_ok=True)
 
-    ds = build_dataset(config, records, config.target_classes, training=False, apply_training_time_augmentation=False)
+    # Implementation detail for deep feature extraction: use extraction_batch_size=16
+    # to ensure safe GPU memory headroom on 4 GB VRAM devices without altering the training protocol.
+    extraction_batch_size = getattr(config, "extraction_batch_size", 16)
+    ds = build_dataset(
+        config, records, config.target_classes, training=False,
+        apply_training_time_augmentation=False, batch_size=extraction_batch_size,
+    )
     psd_ids_in_order = [r.psd_id for r in records]  # build_dataset preserves order when training=False
 
     idx = 0

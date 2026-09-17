@@ -60,11 +60,12 @@ from __future__ import annotations
 
 import csv
 import gc
+import hashlib
 import json
 import random
 import time
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional, Tuple
 
 from config.config import PSDConfig
 from modules.fold_loader import FoldPlan
@@ -180,6 +181,104 @@ def safe_copy_file(src: Path, dst: Path) -> None:
             fdst.write(chunk)
 
 
+def validate_cached_fold(
+    fold_dir: Path,
+    config: PSDConfig,
+    fold_index: int,
+    experiment_name: str,
+    apply_training_time_augmentation: bool,
+) -> Tuple[bool, str]:
+    """Validates that a cached fold directory contains complete, uncorrupted artifacts
+    strictly matching the CURRENT execution environment, dataset freeze, and fold plan.
+
+    Returns (True, "OK") if safe to reuse.
+    Returns (False, reason) if any mismatch, missing file, or corruption is detected.
+    """
+    best_model_path = fold_dir / "best_model.keras"
+    manifest_path = fold_dir / "manifest.json"
+    cm_path = fold_dir / "confusion_matrix.json"
+
+    # 1. Check all required artifact files exist
+    if not best_model_path.exists():
+        return False, f"Missing best_model.keras in {fold_dir.name}"
+    if not manifest_path.exists():
+        return False, f"Missing manifest.json in {fold_dir.name}"
+    if not cm_path.exists():
+        return False, f"Missing confusion_matrix.json in {fold_dir.name}"
+
+    # 2. Parse manifest.json
+    try:
+        m_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return False, f"Corrupt manifest.json: {exc}"
+
+    # 3. Parse confusion_matrix.json
+    try:
+        cm_data = json.loads(cm_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return False, f"Corrupt confusion_matrix.json: {exc}"
+
+    # 4. Check dataset freeze hash against current authoritative report
+    freeze_p = config.aef_crc_reports_dir / "dataset_freeze.json"
+    if not freeze_p.exists():
+        return False, "Current dataset_freeze.json does not exist on disk"
+    expected_freeze_hash = hashlib.sha256(freeze_p.read_bytes()).hexdigest()
+    actual_freeze_hash = m_data.get("dataset_freeze_hash")
+    if not actual_freeze_hash:
+        return False, "Missing dataset_freeze_hash in manifest"
+    if actual_freeze_hash != expected_freeze_hash:
+        return False, (
+            f"dataset_freeze_hash mismatch (cached: {actual_freeze_hash[:12]}..., "
+            f"expected: {expected_freeze_hash[:12]}...)"
+        )
+
+    # 5. Check fold plan hash against current authoritative report
+    plan_p = config.aef_crc_reports_dir / "fold_plan.csv"
+    if not plan_p.exists():
+        return False, "Current fold_plan.csv does not exist on disk"
+    expected_plan_hash = hashlib.sha256(plan_p.read_bytes()).hexdigest()
+    actual_plan_hash = m_data.get("fold_plan_hash")
+    if not actual_plan_hash:
+        return False, "Missing fold_plan_hash in manifest"
+    if actual_plan_hash != expected_plan_hash:
+        return False, (
+            f"fold_plan_hash mismatch (cached: {actual_plan_hash[:12]}..., "
+            f"expected: {expected_plan_hash[:12]}...)"
+        )
+
+    # 6. Check fold_index
+    if m_data.get("fold_index") != fold_index:
+        return False, f"fold_index mismatch (cached: {m_data.get('fold_index')}, requested: {fold_index})"
+
+    # 7. Check representation_id
+    expected_repr_id = representation_id(config)
+    actual_repr_id = m_data.get("representation_id")
+    if not actual_repr_id:
+        return False, "Missing representation_id in manifest"
+    if actual_repr_id != expected_repr_id:
+        return False, f"representation_id mismatch (cached: {actual_repr_id}, expected: {expected_repr_id})"
+
+    # 8. Check random_seed
+    if m_data.get("random_seed") != config.random_seed:
+        return False, f"random_seed mismatch (cached: {m_data.get('random_seed')}, expected: {config.random_seed})"
+
+    # 9. Check preprocessing_mode & training_time_augmentation
+    if m_data.get("preprocessing_mode") != config.preprocessing_mode:
+        return False, f"preprocessing_mode mismatch (cached: {m_data.get('preprocessing_mode')}, expected: {config.preprocessing_mode})"
+    if m_data.get("training_time_augmentation") != apply_training_time_augmentation:
+        return False, f"training_time_augmentation mismatch (cached: {m_data.get('training_time_augmentation')}, expected: {apply_training_time_augmentation})"
+
+    # 10. Check metric fields exist in manifest and confusion matrix
+    if "macro_f1" not in m_data or "accuracy" not in m_data:
+        return False, "Missing macro_f1 or accuracy in manifest"
+    if "matrix" not in cm_data or "per_class" not in cm_data:
+        return False, "Missing matrix or per_class in confusion_matrix.json"
+    if cm_data.get("class_order") != list(config.target_classes):
+        return False, "class_order mismatch in confusion_matrix.json"
+
+    return True, "Verified matching current provenance, fold plan, and configuration"
+
+
 def run_experiment(
     config: PSDConfig,
     plan: FoldPlan,
@@ -241,8 +340,17 @@ def run_experiment(
         best_model_path = fold_dir / "best_model.keras"
         manifest_path = fold_dir / "manifest.json"
         cm_path = fold_dir / "confusion_matrix.json"
-        if best_model_path.exists() and manifest_path.exists() and cm_path.exists():
-            logger.info(f"Fold {fold.fold_index}: loading verified fold metrics from {manifest_path}")
+
+        is_valid, validation_reason = validate_cached_fold(
+            fold_dir=fold_dir,
+            config=config,
+            fold_index=fold.fold_index,
+            experiment_name=experiment_name,
+            apply_training_time_augmentation=apply_training_time_augmentation,
+        )
+
+        if is_valid:
+            logger.info(f"Fold {fold.fold_index}: reusing verified cached fold artifacts ({validation_reason}) from {manifest_path}")
             m_data = json.loads(manifest_path.read_text(encoding="utf-8"))
             cm_data = json.loads(cm_path.read_text(encoding="utf-8"))
             per_class = {
@@ -276,6 +384,12 @@ def run_experiment(
                     backbone_spec.extract_features(config, backbone_layer, records, experiment_name, fold.fold_index, split_name, best_model_path)
                 logger.info(f"Deep features cached for fold {fold.fold_index} using reloaded best checkpoint {best_model_path}")
             continue
+        else:
+            if manifest_path.exists() or best_model_path.exists() or cm_path.exists():
+                logger.warning(
+                    f"Fold {fold.fold_index}: existing cached artifacts REJECTED ({validation_reason}). "
+                    f"Treating fold as stale and retraining from scratch."
+                )
 
         model, backbone = backbone_spec.build_stage1(config, num_classes=len(class_order))
         model_info = backbone_spec.describe(model)
@@ -415,6 +529,7 @@ def _write_fold_artifacts(
         "unfrozen_layers": config.unfrozen_layers,
         "dropout_rate": config.dropout_rate,
         "representation_id": representation_id(config),
+        "run_id": getattr(config, "run_id", None) or os.environ.get("AEFCRC_RUN_ID", None),
         "dataset_freeze_hash": dataset_freeze_hash,
         "metadata_hash": metadata_hash,
         "fold_plan_hash": fold_plan_hash,

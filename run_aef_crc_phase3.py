@@ -223,6 +223,7 @@ def main() -> int:
                 winner_config, backbone_layer, records, winner_name,
                 fold.fold_index, split_name, best_model_path,
             )
+        del loaded_model, backbone_layer
         tf.keras.backend.clear_session()
         gc.collect()
 
@@ -248,6 +249,7 @@ def main() -> int:
     best_backbone_layer = loaded_best.get_layer("efficientnetb0") if "efficientnetb0" in [l.name for l in loaded_best.layers] else loaded_best
     backbone_spec.extract_features(winner_config, best_backbone_layer, final_train_records, winner_name, -1, "final_train", best_overall_ckpt)
     backbone_spec.extract_features(winner_config, best_backbone_layer, plan.holdout_val_records, winner_name, -1, "calibration", best_overall_ckpt)
+    del loaded_best, best_backbone_layer
     tf.keras.backend.clear_session()
     gc.collect()
 
