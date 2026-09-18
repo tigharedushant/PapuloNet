@@ -1,0 +1,5 @@
+class,precision_mean,precision_std,recall_mean,recall_std,f1_mean,f1_std,support
+Psoriasis,0.7762,0.0393,0.8276,0.0134,0.8004,0.02,638
+Lichen_Planus,0.6568,0.0616,0.5115,0.1358,0.5676,0.1,258
+Pityriasis_Rosea,0.6546,0.0771,0.6917,0.0681,0.6712,0.0666,162
+Seborrheic_Dermatitis,0.7207,0.0943,0.7386,0.069,0.7234,0.0504,88

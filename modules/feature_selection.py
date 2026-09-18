@@ -609,8 +609,8 @@ def save_production_bda_mask(
 
     if not isinstance(mask, np.ndarray):
         raise TypeError(f"Production BDA mask must be a numpy ndarray, got {type(mask)}")
-    if mask.ndim != 1 or mask.shape[0] != 1348:
-        raise ValueError(f"Production BDA mask dimension mismatch: expected 1348-D, got shape {mask.shape}")
+    if mask.ndim != 1 or mask.shape[0] not in (1316, 1348):
+        raise ValueError(f"Production BDA mask dimension mismatch: expected 1316-D or 1348-D, got shape {mask.shape}")
     if mask.dtype != bool:
         raise TypeError(f"Production BDA mask must have boolean dtype, got {mask.dtype}")
     if mask.sum() == 0:
@@ -624,7 +624,7 @@ def save_production_bda_mask(
     payload = {
         "mask": mask,
         "selected_count": int(mask.sum()),
-        "total_dim": 1348,
+        "total_dim": int(mask.shape[0]),
         "run_id": run_id,
         "representation_id": representation_id(config),
         "random_seed": config.random_seed,
@@ -677,9 +677,9 @@ def load_production_bda_mask(config: PSDConfig, expected_run_id: Optional[str] =
     else:
         raise TypeError(f"Unexpected production BDA mask payload type: {type(payload)}")
 
-    if not isinstance(mask, np.ndarray) or mask.shape != (1348,) or mask.dtype != bool:
+    if not isinstance(mask, np.ndarray) or mask.ndim != 1 or mask.shape[0] not in (1316, 1348) or mask.dtype != bool:
         raise ValueError(
-            f"Corrupt production BDA mask at {path}: expected 1348-D boolean array, "
+            f"Corrupt production BDA mask at {path}: expected 1316-D or 1348-D boolean array, "
             f"got {type(mask)} with shape {getattr(mask, 'shape', None)} and dtype {getattr(mask, 'dtype', None)}"
         )
     return mask

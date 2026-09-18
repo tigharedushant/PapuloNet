@@ -356,16 +356,42 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         from datetime import datetime, timezone
         from modules.experiment_config import representation_id
+        from modules.fusion import select_fusion_arm_from_results
+
+        selection = select_fusion_arm_from_results(results_path, config)
+
+        freeze_path = config.aef_crc_reports_dir / "dataset_freeze.json"
+        freeze_hash = (wdata.get("dataset_freeze_hash") if 'wdata' in locals() and wdata else None) or (
+            json.loads(freeze_path.read_text(encoding="utf-8")).get("freeze_hash") if freeze_path.exists() else None
+        )
+
+        fold_plan_path = config.aef_crc_reports_dir / "fold_plan.csv"
+        fold_plan_hash = (wdata.get("fold_plan_hash") if 'wdata' in locals() and wdata else None) or (
+            hashlib.sha256(fold_plan_path.read_bytes()).hexdigest() if fold_plan_path.exists() else None
+        )
+
         manifest_data = {
             "phase": "phase5",
             "run_id": wdata.get("run_id") if 'wdata' in locals() and wdata else None,
             "representation_id": representation_id(config),
             "random_seed": config.random_seed,
             "winner": winner,
+            "dataset_freeze_hash": freeze_hash,
+            "fold_plan_hash": fold_plan_hash,
+            "selection_rule": selection["selection_rule"],
+            "selected_fusion_arm": selection["selected_fusion_arm"],
+            "selected_fusion_arm_id": selection["selected_fusion_arm_id"],
+            "selected_fusion_representation": selection["selected_fusion_representation"],
+            "selected_fusion_dimension": selection["selected_fusion_dimension"],
+            "selected_fusion_branches": selection["selected_fusion_branches"],
+            "selected_metrics": selection["selected_metrics"],
+            "selection_metadata": selection["selection_metadata"],
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         (out_dir / "phase5_manifest.json").write_text(json.dumps(manifest_data, indent=2), encoding="utf-8")
         print(f"\nResults written to {results_path}, {mcnemar_path}, and phase5_manifest.json")
+        print(f"Phase 5 Selected Fusion Arm: {selection['selected_fusion_arm']} ({selection['selected_fusion_arm_id']})")
+        print(f"Selection Rationale: {selection['selection_metadata']['selection_rationale']}")
         print("\nPHASE 5 RESULT: REAL EXPERIMENTS COMPLETE.")
         return 0
 

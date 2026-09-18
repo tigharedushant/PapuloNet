@@ -1,0 +1,6 @@
+metric,mean,std
+Macro-F1,0.6906,0.0384
+Balanced Accuracy,0.6923,0.029
+MCC,0.5547,0.0525
+Accuracy,0.7303,0.0294
+Weighted F1,0.7239,0.0357

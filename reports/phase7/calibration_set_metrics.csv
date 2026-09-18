@@ -1,0 +1,7 @@
+metric,value
+Macro-F1,0.7354
+Balanced Accuracy,0.754
+MCC,0.611
+Accuracy,0.7602
+Weighted F1,0.7585
+n_calibration_samples,246

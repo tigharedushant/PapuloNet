@@ -1,0 +1,2 @@
+comparison,method_a,method_b,p_value,significant_at_0_05
+BDA vs GA,bda,ga,0.9247,False

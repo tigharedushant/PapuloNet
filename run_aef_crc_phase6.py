@@ -25,19 +25,26 @@ import dataclasses
 import itertools
 import json
 import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from config.config import get_config
+from config.config import get_config, PSDConfig
 from modules.dataset_freeze import DatasetFreezer
-from modules.fold_loader import load_frozen_fold_plan
+from modules.fold_loader import load_frozen_fold_plan, ImbalanceAwareFoldLoader
 from modules.fusion import (
     ARMS,
     build_fusion_fold,
     build_classifier,
     compute_sample_weights,
+    select_fusion_arm_from_results,
 )
-from modules.feature_selection import run_selector, estimate_rfe_cost
+from modules.feature_selection import (
+    run_selector,
+    estimate_rfe_cost,
+    SelectionResult,
+)
 from modules.evaluation import (
     compute_fold_metrics,
     aggregate_fold_metrics,
@@ -46,25 +53,48 @@ from modules.evaluation import (
 )
 
 
+def align_phase3_winner_config(config: PSDConfig, source_experiment: Optional[str] = None) -> Tuple[PSDConfig, str]:
+    """Ensures config is aligned with the authoritative Phase 3 winner (P3-BASE)
+    so representation_id matches the real P3-BASE deep-feature cache exactly."""
+    winner_json_path = config.aef_crc_phase3_reports_dir / "winner.json"
+    p3_winner = source_experiment or "P3-BASE"
+    if winner_json_path.exists():
+        try:
+            wdata = json.loads(winner_json_path.read_text(encoding="utf-8"))
+            p3_winner = wdata.get("winner_experiment_id") or wdata.get("winner_name") or p3_winner
+            mode = wdata.get("preprocessing_mode", "standard")
+            raw_aug = wdata.get("training_time_augmentation", "false")
+            aug = "true" if str(raw_aug).lower() in ("true", "1") else "false"
+            config = dataclasses.replace(config, preprocessing_mode=mode, training_time_augmentation=aug)
+            return config, p3_winner
+        except Exception:
+            pass
+    config = dataclasses.replace(config, preprocessing_mode="standard", training_time_augmentation="false")
+    return config, p3_winner
+
+
 def parse_phase5_winner(config):
     """
-    Reads Phase 5's own real output files and applies Phase 5's own
-    decision rule.
+    Reads Phase 5's own real output files and applies Phase 5's authoritative
+    deterministic selection protocol.
 
     Returns:
         (winner_arm_name_or_None, detail_str)
 
-    The selected Phase-5 arm can be EfficientNet itself. None is returned
-    only when the Phase-5 evidence files are unavailable/invalid or no
-    arm can be established.
+    Primary Selection Criterion:
+        Select the fusion arm with the highest mean 5-fold validation Macro-F1.
+    Tie / Practical-Performance Margin Rule:
+        If two or more arms are within EQUIVALENCE_MARGIN (0.005), prefer the
+        lower-dimensional representation, then higher balanced accuracy, then arm ID.
+    Paired McNemar testing on pooled out-of-fold predictions, with Holm
+    correction, is retained as an inferential comparison for reporting and
+    does not determine representation selection.
     """
     results_path = config.aef_crc_phase5_reports_dir / "fusion_results.csv"
     mcnemar_path = config.aef_crc_phase5_reports_dir / "fusion_mcnemar_holm.csv"
 
-    if not results_path.exists() or not mcnemar_path.exists():
-        return None, (
-            f"Missing {results_path.name} or {mcnemar_path.name}"
-        )
+    if not results_path.exists():
+        return None, f"Missing {results_path.name}"
 
     p5_manifest = config.aef_crc_phase5_reports_dir / "phase5_manifest.json"
     if p5_manifest.exists():
@@ -83,69 +113,48 @@ def parse_phase5_winner(config):
         except Exception:
             pass
 
-    with results_path.open() as f:
-        rows = list(csv.DictReader(f))
+    try:
+        selection = select_fusion_arm_from_results(results_path, config)
+    except Exception as exc:
+        return None, f"Phase 5 selection rule evaluation failed: {exc}"
 
-    if not rows:
-        return None, "fusion_results.csv exists but is empty"
+    selected_arm = selection["selected_fusion_arm"]
+    selected_dim = selection["selected_fusion_dimension"]
+    selected_f1 = selection["selected_metrics"]["macro_f1_mean"]
 
-    best_row = max(
-        rows,
-        key=lambda r: float(r["macro_f1_mean"]),
+    if selected_arm not in ARMS:
+        return None, f"Unknown Phase-5 arm '{selected_arm}' in fusion_results.csv"
+
+    # Characterize pairwise statistical evidence for reporting without vetoing representation selection
+    evidence_note = ""
+    if mcnemar_path.exists() and selected_arm != "EfficientNet":
+        try:
+            with mcnemar_path.open(encoding="utf-8") as f:
+                mcnemar_rows = list(csv.DictReader(f))
+            pair_row = next(
+                (
+                    r for r in mcnemar_rows
+                    if {r["arm_a"], r["arm_b"]} == {"EfficientNet", selected_arm}
+                ),
+                None,
+            )
+            if pair_row and pair_row.get("p_value_holm") not in ("", None):
+                p_holm = float(pair_row["p_value_holm"])
+                raw_p = float(pair_row["p_value"]) if pair_row.get("p_value") not in ("", None) else None
+                evidence_note = (
+                    f" (Paired McNemar testing on pooled out-of-fold predictions, with Holm correction, "
+                    f"is retained as an inferential comparison for reporting and does not determine "
+                    f"representation selection: raw p={raw_p:.4f}, Holm p={p_holm:.4f})"
+                )
+        except Exception:
+            evidence_note = ""
+
+    detail = (
+        f"Selected arm '{selected_arm}' ({selection['selected_fusion_arm_id']}) via predefined rule "
+        f"(Macro-F1={selected_f1:.4f}, dim={selected_dim}).{evidence_note}"
     )
 
-    best_arm = best_row["arm"]
-
-    # Fail loudly if Phase 5 produced an arm name that Phase 6 cannot use.
-    if best_arm not in ARMS:
-        return None, (
-            f"Unknown Phase-5 arm '{best_arm}' in fusion_results.csv"
-        )
-
-    # EfficientNet-only is a legitimate Phase-5 winner.
-    # Phase 6 must still proceed using that arm.
-    if best_arm == "EfficientNet":
-        return (
-            "EfficientNet",
-            "EfficientNet-only is the Phase-5 winner; "
-            "no fusion arm significantly beats it",
-        )
-
-    with mcnemar_path.open() as f:
-        mcnemar_rows = list(csv.DictReader(f))
-
-    pair_row = next(
-        (
-            r
-            for r in mcnemar_rows
-            if {r["arm_a"], r["arm_b"]}
-            == {"EfficientNet", best_arm}
-        ),
-        None,
-    )
-
-    if pair_row is None or pair_row["p_value_holm"] == "":
-        return (
-            "EfficientNet",
-            f"Best arm '{best_arm}' has insufficient evidence to "
-            "establish superiority -- retaining EfficientNet-only",
-        )
-
-    p_holm = float(pair_row["p_value_holm"])
-
-    if p_holm >= 0.05:
-        return (
-            "EfficientNet",
-            f"Best arm '{best_arm}' does not significantly beat "
-            f"EfficientNet-only (Holm p={p_holm:.4f} >= 0.05) "
-            "-- retaining EfficientNet-only",
-        )
-
-    return (
-        best_arm,
-        f"'{best_arm}' significantly beats EfficientNet-only "
-        f"(Holm p={p_holm:.4f})",
-    )
+    return selected_arm, detail
 
 
 def run_candidates_for_fold(
@@ -280,6 +289,7 @@ def run_benchmark(
     source_experiment,
     label_prefix="",
 ):
+    config, source_experiment = align_phase3_winner_config(config, source_experiment)
     from modules.handcrafted_features import HandcraftedFeatureExtractor
 
     extractor = HandcraftedFeatureExtractor(config)
@@ -292,238 +302,14 @@ def run_benchmark(
         )
 
     # ------------------------------------------------------------
-    # Efficiency:
-    # Estimate RFE cost from fold 0 BEFORE running all folds.
-    # ------------------------------------------------------------
-
-    fold0_data = build_fusion_fold(
-        config,
-        plan.folds[0],
-        branches,
-        source_experiment,
-        extractor,
-    )
-
-    cost = estimate_rfe_cost(
-        fold0_data,
-        config.feature_selection_top_k,
-        config.rfe_step,
-        config.random_seed,
-        len(plan.folds),
-    )
-
-    print(
-        f"{label_prefix}"
-        f"RFE cost estimate: "
-        f"{cost['single_fold_seconds']:.2f}s/fold x "
-        f"{cost['n_folds']} folds "
-        f"= ~{cost['estimated_total_seconds']:.1f}s total. "
-        f"Proceeding."
-    )
-
-    # ------------------------------------------------------------
     # Storage for CV results.
     # ------------------------------------------------------------
 
-    method_fold_metrics = {
-        "no_selection": [],
-        "xgboost_importance": [],
-        "rfe": [],
-    }
-
+    aggregates = {}
     pooled_predictions = {
-        "no_selection": {},
-        "xgboost_importance": {},
-        "rfe": {},
+        "bda": {},
+        "ga": {},
     }
-
-    selection_details = {
-        "no_selection": [],
-        "xgboost_importance": [],
-        "rfe": [],
-    }
-
-    # ------------------------------------------------------------
-    # Run candidates across all folds.
-    # ------------------------------------------------------------
-
-    for fold_pos, fold in enumerate(plan.folds):
-
-        # Fold 0 was already built for the RFE cost estimate.
-        # Reuse it rather than rebuilding all deep/handcrafted features.
-        #
-        # This does NOT alter the data split, feature transformation,
-        # selector, classifier, or evaluation workflow.
-        data = (
-            fold0_data
-            if fold_pos == 0
-            else build_fusion_fold(
-                config,
-                fold,
-                branches,
-                source_experiment,
-                extractor,
-            )
-        )
-
-        results = run_candidates_for_fold(
-            config,
-            data,
-            fold.fold_index,
-        )
-
-        for method, selection in results.items():
-
-            metrics, y_pred = evaluate_selection(
-                config,
-                data,
-                selection,
-                classes,
-                fold.class_weights,
-                fold.fold_index,
-            )
-
-            method_fold_metrics[method].append(
-                metrics
-            )
-
-            # Store paired predictions by PSD ID for McNemar's test.
-            for pid, true, pred in zip(
-                data.psd_ids_val,
-                data.y_val,
-                y_pred,
-            ):
-                pooled_predictions[method][pid] = (
-                    true,
-                    pred,
-                )
-
-            selection_details[method].append(
-                selection
-            )
-
-            print(
-                f"{label_prefix}"
-                f"  fold {fold.fold_index} "
-                f"{method:20s}: "
-                f"{selection.selected_count:4d} features "
-                f"({selection.branch_retained}) | "
-                f"macro_f1={metrics.macro_f1:.4f} | "
-                f"fit_time={selection.fit_time_sec:.2f}s"
-            )
-
-    # ------------------------------------------------------------
-    # Aggregate fold results.
-    # ------------------------------------------------------------
-
-    aggregates = {
-        method: aggregate_fold_metrics(fold_metrics)
-        for method, fold_metrics in method_fold_metrics.items()
-    }
-
-    for method, agg in aggregates.items():
-        print(
-            f"{label_prefix}"
-            f"{method:20s}: "
-            f"macro_f1 = "
-            f"{agg.macro_f1_mean:.4f} +/- "
-            f"{agg.macro_f1_std:.4f}"
-        )
-
-    # ------------------------------------------------------------
-    # Pairwise Holm-corrected McNemar test.
-    # ------------------------------------------------------------
-
-    print(
-        f"{label_prefix}"
-        "Pairwise McNemar (pooled), Holm-corrected:"
-    )
-
-    pairs = list(
-        itertools.combinations(
-            pooled_predictions.keys(),
-            2,
-        )
-    )
-
-    raw = []
-
-    for a, b in pairs:
-
-        common = sorted(
-            set(pooled_predictions[a])
-            & set(pooled_predictions[b])
-        )
-
-        y_true = [
-            pooled_predictions[a][pid][0]
-            for pid in common
-        ]
-
-        y_pred_a = [
-            pooled_predictions[a][pid][1]
-            for pid in common
-        ]
-
-        y_pred_b = [
-            pooled_predictions[b][pid][1]
-            for pid in common
-        ]
-
-        raw.append(
-            (
-                a,
-                b,
-                mcnemar_test(
-                    y_true,
-                    y_pred_a,
-                    y_pred_b,
-                ),
-            )
-        )
-
-    p_values = [
-        result["p_value"]
-        if result is not None
-        else None
-        for _, _, result in raw
-    ]
-
-    adjusted = holm_correction(
-        p_values
-    )
-
-    any_significant = False
-
-    for (a, b, result), p_adj in zip(
-        raw,
-        adjusted,
-    ):
-
-        if result is None:
-
-            print(
-                f"{label_prefix}"
-                f"  {a} vs {b}: "
-                "evidence insufficient "
-                "(n01+n10<25)"
-            )
-
-        else:
-
-            significant = p_adj < 0.05
-
-            any_significant = (
-                any_significant
-                or significant
-            )
-
-            print(
-                f"{label_prefix}"
-                f"  {a} vs {b}: "
-                f"p_holm={p_adj:.4f}"
-                f"{' (significant)' if significant else ''}"
-            )
 
     # ------------------------------------------------------------
     # Optimization Feature Selection: BDA (Primary) & GA (Comparator)
@@ -671,6 +457,37 @@ def run_benchmark(
         f"{aggregates['ga'].macro_f1_std:.4f}"
     )
 
+    # ------------------------------------------------------------
+    # Pairwise McNemar test: BDA (Primary) vs GA (Comparator)
+    # ------------------------------------------------------------
+
+    common = sorted(
+        set(pooled_predictions["bda"])
+        & set(pooled_predictions["ga"])
+    )
+
+    if common:
+        y_true = [pooled_predictions["bda"][pid][0] for pid in common]
+        y_pred_bda = [pooled_predictions["bda"][pid][1] for pid in common]
+        y_pred_ga = [pooled_predictions["ga"][pid][1] for pid in common]
+
+        result = mcnemar_test(y_true, y_pred_bda, y_pred_ga)
+        if result is not None:
+            p_val = result["p_value"]
+            significant = p_val < 0.05
+            print(
+                f"{label_prefix}"
+                f"Pairwise McNemar (pooled): bda vs ga: "
+                f"p={p_val:.4f}"
+                f"{' (significant)' if significant else ''}"
+            )
+        else:
+            print(
+                f"{label_prefix}"
+                f"Pairwise McNemar (pooled): bda vs ga: "
+                "evidence insufficient (n01+n10<25)"
+            )
+
     return aggregates, pooled_predictions
 
 
@@ -685,6 +502,7 @@ def execute_production_bda(
     Authorized ONLY during real experimental execution phase.
     Persists the resulting mask to artifacts/phase6/production_bda_mask.joblib.
     """
+    config, source_experiment = align_phase3_winner_config(config, source_experiment)
     from modules.fusion import build_fusion_final
     from modules.handcrafted_features import HandcraftedFeatureExtractor
     from modules.feature_selection import select_bda, save_production_bda_mask
@@ -871,7 +689,7 @@ def validate_phase6_framework(config) -> bool:
 
 def main() -> int:
 
-    config = get_config()
+    config, p3_winner = align_phase3_winner_config(get_config())
 
     if "--validate-framework" in sys.argv or "--validate-only" in sys.argv:
         ok = validate_phase6_framework(config)
@@ -900,14 +718,6 @@ def main() -> int:
             print("ERROR: Cannot execute production BDA: Phase 5 winning arm not established.")
             return 1
         plan = load_frozen_fold_plan(config)
-        winner_json_path = config.aef_crc_phase3_reports_dir / "winner.json"
-        p3_winner = "P3-BASE"
-        if winner_json_path.exists():
-            try:
-                wdata = json.loads(winner_json_path.read_text(encoding="utf-8"))
-                p3_winner = wdata.get("winner_experiment_id", "P3-BASE")
-            except Exception:
-                pass
         execute_production_bda(config, plan, ARMS[winner], p3_winner)
         return 0
 
@@ -939,17 +749,7 @@ def main() -> int:
         if not freeze_ok:
             return 1
 
-        winner_json_path = config.aef_crc_phase3_reports_dir / "winner.json"
-        p3_winner = "P3-BASE"
-        if winner_json_path.exists():
-            try:
-                wdata = json.loads(winner_json_path.read_text(encoding="utf-8"))
-                p3_winner = wdata.get("winner_experiment_id", "P3-BASE")
-                mode = wdata.get("preprocessing_mode", "standard")
-                aug = "true" if wdata.get("training_time_augmentation") else "false"
-                config = dataclasses.replace(config, preprocessing_mode=mode, training_time_augmentation=aug)
-            except Exception:
-                pass
+        config, p3_winner = align_phase3_winner_config(config, p3_winner)
 
         plan = load_frozen_fold_plan(config)
 

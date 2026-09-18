@@ -42,6 +42,8 @@ from modules.fusion import (
     get_representation_id,
     validate_fusion_dimensions,
     build_fusion_manifest,
+    SELECTION_RULE_NAME,
+    select_fusion_arm_from_results,
 )
 from modules.handcrafted_features import (
     FeatureVectors,
@@ -405,8 +407,98 @@ def test_build_fusion_manifest_schema():
     assert manifest["slice_boundaries"]["color_lab"] == [1342, 1348]
 
 
-# ---- 9. Practical Equivalence Margin (Section 20) ----
+# ---- 9. Practical Equivalence Margin & Selection Contract ----
 
 def test_practical_equivalence_margin_defined():
     """EQUIVALENCE_MARGIN must be 0.005."""
     assert EQUIVALENCE_MARGIN == 0.005
+
+
+def test_select_fusion_arm_rule_synthetic_scenarios(tmp_path):
+    """Test deterministic selection rule with practical equivalence and tiebreaks."""
+    import csv
+
+    # Scenario 1: A6 and A7 within 0.005 margin -> prefer lower dimension (A7: 1316 < A6: 1348)
+    csv_path = tmp_path / "fusion_results_1.csv"
+    with csv_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["arm", "macro_f1_mean", "macro_f1_std", "balanced_accuracy_mean", "mcc_mean"])
+        writer.writerow(["EfficientNet", 0.7097, 0.0355, 0.7069, 0.5870])
+        writer.writerow(["EfficientNet+GLCM+LBP+HOG-PCA+LAB", 0.7243, 0.0366, 0.7239, 0.6084])
+        writer.writerow(["EfficientNet+GLCM+LBP+LAB", 0.7270, 0.0190, 0.7264, 0.6179])
+
+    sel = select_fusion_arm_from_results(csv_path)
+    assert sel["selected_fusion_arm"] == "EfficientNet+GLCM+LBP+LAB"
+    assert sel["selected_fusion_arm_id"] == "A7"
+    assert sel["selected_fusion_dimension"] == 1316
+    assert len(sel["selection_metadata"]["candidates_within_practical_performance_margin"]) == 2
+
+    # Scenario 2: High dimension has slightly higher F1 (within 0.005) -> prefer lower dimension
+    csv_path2 = tmp_path / "fusion_results_2.csv"
+    with csv_path2.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["arm", "macro_f1_mean", "macro_f1_std", "balanced_accuracy_mean", "mcc_mean"])
+        writer.writerow(["EfficientNet", 0.7260, 0.0200, 0.7200, 0.6000])
+        writer.writerow(["EfficientNet+GLCM+LBP+HOG-PCA+LAB", 0.7290, 0.0200, 0.7250, 0.6100])
+
+    sel2 = select_fusion_arm_from_results(csv_path2)
+    # EfficientNet has 1280 dim vs 1348 dim; delta is 0.0030 <= 0.005 -> lower dim wins
+    assert sel2["selected_fusion_arm"] == "EfficientNet"
+    assert sel2["selected_fusion_arm_id"] == "A0"
+    assert sel2["selected_fusion_dimension"] == 1280
+
+    # Scenario 3: Delta > 0.005 -> higher F1 wins regardless of dimension
+    csv_path3 = tmp_path / "fusion_results_3.csv"
+    with csv_path3.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["arm", "macro_f1_mean", "macro_f1_std", "balanced_accuracy_mean", "mcc_mean"])
+        writer.writerow(["EfficientNet", 0.7200, 0.0200, 0.7200, 0.6000])
+        writer.writerow(["EfficientNet+GLCM+LBP+HOG-PCA+LAB", 0.7300, 0.0200, 0.7250, 0.6100])
+
+    sel3 = select_fusion_arm_from_results(csv_path3)
+    assert sel3["selected_fusion_arm"] == "EfficientNet+GLCM+LBP+HOG-PCA+LAB"
+    assert sel3["selected_fusion_arm_id"] == "A6"
+    assert sel3["selected_fusion_dimension"] == 1348
+
+
+def test_phase5_real_results_selection_and_manifest():
+    """Verify selection on actual reports/phase5 artifacts."""
+    config = get_config()
+    results_path = config.aef_crc_phase5_reports_dir / "fusion_results.csv"
+    manifest_path = config.aef_crc_phase5_reports_dir / "phase5_manifest.json"
+
+    if not results_path.exists() or not manifest_path.exists():
+        pytest.skip("Phase 5 report artifacts not present on disk.")
+
+    sel = select_fusion_arm_from_results(results_path, config)
+    assert sel["selected_fusion_arm"] == "EfficientNet+GLCM+LBP+LAB"
+    assert sel["selected_fusion_arm_id"] == "A7"
+    assert sel["selected_fusion_dimension"] == 1316
+    assert sel["selected_fusion_representation"] == "efficientnet_glcm_lbp_lab"
+
+    # Check manifest fields
+    import json
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["phase"] == "phase5"
+    assert manifest["winner"] == "P3-BASE"  # Preserves Phase 3 winner
+    assert manifest["selected_fusion_arm"] == "EfficientNet+GLCM+LBP+LAB"
+    assert manifest["selected_fusion_arm_id"] == "A7"
+    assert manifest["selected_fusion_dimension"] == 1316
+    assert manifest["selected_fusion_representation"] == "efficientnet_glcm_lbp_lab"
+    assert manifest["selection_rule"] == SELECTION_RULE_NAME
+    assert manifest["dataset_freeze_hash"] is not None
+    assert manifest["fold_plan_hash"] is not None
+
+
+def test_parse_phase5_winner_phase6_interface():
+    """Verify Phase 6 interface parse_phase5_winner yields selected arm."""
+    from run_aef_crc_phase6 import parse_phase5_winner
+    config = get_config()
+    results_path = config.aef_crc_phase5_reports_dir / "fusion_results.csv"
+    if not results_path.exists():
+        pytest.skip("Phase 5 results not present.")
+
+    winner_arm, detail = parse_phase5_winner(config)
+    assert winner_arm == "EfficientNet+GLCM+LBP+LAB"
+    assert "A7" in detail
+    assert "Macro-F1=0.7270" in detail

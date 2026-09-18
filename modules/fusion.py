@@ -803,3 +803,128 @@ def validate_phase7_classifier(classifier_name: str) -> None:
         )
 
 
+SELECTION_RULE_NAME = (
+    "highest_mean_macro_f1_with_0.005_practical_equivalence_and_lowest_dimension_tiebreak"
+)
+
+
+def select_fusion_arm_from_results(
+    fusion_results_path: Union[str, Path],
+    config: Optional[PSDConfig] = None,
+    equivalence_margin: float = EQUIVALENCE_MARGIN,
+) -> Dict[str, Any]:
+    """Applies the deterministic Phase 5 fusion-arm selection rule to results.
+
+    Primary Selection Criterion:
+        Select the fusion arm with the highest mean 5-fold validation Macro-F1.
+
+    Tie / Practical-Performance Margin Rule:
+        If two or more arms are tied within the predefined practical-performance
+        margin of 0.005 Macro-F1 (EQUIVALENCE_MARGIN), prefer the lower-dimensional
+        representation.
+        If dimensionality is also tied, select the arm with the higher mean balanced accuracy.
+        If still tied, select deterministically by arm ID.
+
+    Note:
+        Paired McNemar testing on pooled out-of-fold predictions, with Holm
+        correction, is retained as an inferential comparison for reporting and
+        does not determine representation selection.
+    """
+    import csv
+    from pathlib import Path
+
+    path = Path(fusion_results_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Phase 5 results table not found: {path}")
+
+    with path.open(newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    if not rows:
+        raise ValueError(f"Phase 5 results table is empty: {path}")
+
+    candidates = []
+    for r in rows:
+        arm_name = r["arm"]
+        arm_obj = FUSION_ARMS_BY_NAME.get(arm_name) or FUSION_ARMS_BY_ID.get(arm_name)
+        if arm_obj is None:
+            raise KeyError(f"Unknown fusion arm in results: '{arm_name}'")
+        candidates.append({
+            "arm": arm_obj.name,
+            "arm_id": arm_obj.arm_id,
+            "representation_id": arm_obj.representation_id,
+            "branches": list(arm_obj.branches),
+            "dimension": arm_obj.expected_dim,
+            "macro_f1_mean": float(r["macro_f1_mean"]),
+            "macro_f1_std": float(r["macro_f1_std"]),
+            "balanced_accuracy_mean": float(r["balanced_accuracy_mean"]),
+            "mcc_mean": float(r["mcc_mean"]),
+        })
+
+    max_macro_f1 = max(c["macro_f1_mean"] for c in candidates)
+
+    # All arms within equivalence_margin (0.005) of max_macro_f1
+    equiv_set = [
+        c for c in candidates
+        if (max_macro_f1 - c["macro_f1_mean"]) <= (equivalence_margin + 1e-9)
+    ]
+
+    # Deterministic ordering:
+    # 1. Dimension ascending (lower dimensional preferred)
+    # 2. Balanced accuracy descending (higher balanced accuracy preferred)
+    # 3. Arm ID ascending (deterministic fallback)
+    sorted_equiv = sorted(
+        equiv_set,
+        key=lambda c: (c["dimension"], -c["balanced_accuracy_mean"], c["arm_id"])
+    )
+
+    selected = sorted_equiv[0]
+
+    rationale = (
+        f"Arm '{selected['arm']}' ({selected['arm_id']}) selected: achieved Macro-F1={selected['macro_f1_mean']:.4f} "
+        f"(within {equivalence_margin:.4f} of max {max_macro_f1:.4f}) and has lowest dimension "
+        f"({selected['dimension']}-D) among the {len(sorted_equiv)} candidate(s) within the predefined practical-performance margin."
+    )
+
+    return {
+        "selection_rule": SELECTION_RULE_NAME,
+        "selected_fusion_arm": selected["arm"],
+        "selected_fusion_arm_id": selected["arm_id"],
+        "selected_fusion_representation": selected["representation_id"],
+        "selected_fusion_dimension": selected["dimension"],
+        "selected_fusion_branches": selected["branches"],
+        "selected_metrics": {
+            "macro_f1_mean": selected["macro_f1_mean"],
+            "macro_f1_std": selected["macro_f1_std"],
+            "balanced_accuracy_mean": selected["balanced_accuracy_mean"],
+            "mcc_mean": selected["mcc_mean"],
+        },
+        "selection_metadata": {
+            "primary_metric": "macro_f1_mean",
+            "equivalence_margin": equivalence_margin,
+            "max_macro_f1": max_macro_f1,
+            "candidates_considered": [
+                {
+                    "arm_id": c["arm_id"],
+                    "arm": c["arm"],
+                    "dimension": c["dimension"],
+                    "macro_f1_mean": c["macro_f1_mean"],
+                    "balanced_accuracy_mean": c["balanced_accuracy_mean"],
+                }
+                for c in candidates
+            ],
+            "candidates_within_practical_performance_margin": [
+                {
+                    "arm_id": c["arm_id"],
+                    "arm": c["arm"],
+                    "dimension": c["dimension"],
+                    "macro_f1_mean": c["macro_f1_mean"],
+                    "delta_from_max": max_macro_f1 - c["macro_f1_mean"],
+                    "balanced_accuracy_mean": c["balanced_accuracy_mean"],
+                }
+                for c in sorted_equiv
+            ],
+            "selected_arm_id": selected["arm_id"],
+            "selection_rationale": rationale,
+        },
+    }

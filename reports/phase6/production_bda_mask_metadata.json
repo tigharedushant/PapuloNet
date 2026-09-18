@@ -1,0 +1,17 @@
+{
+  "artifact_path": "artifacts/phase6/production_bda_mask.joblib",
+  "run_id": "AEFCRC_RUN_20260917_142937_096005_09452de9aa37442a8b8d683d6ea59129",
+  "representation_id": "efficientnet_b0_6760c4f151acc2d2",
+  "random_seed": 42,
+  "timestamp": "2026-09-18T08:22:51.695037+00:00",
+  "total_dimension": 1316,
+  "selected_count": 194,
+  "branch_retained": {
+    "deep": 190,
+    "glcm": 1,
+    "lbp": 3,
+    "color_lab": 0
+  },
+  "fit_time_sec": 1240.5762524169986,
+  "source_experiment": "P3-BASE"
+}

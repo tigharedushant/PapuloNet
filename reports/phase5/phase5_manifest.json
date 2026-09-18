@@ -1,0 +1,110 @@
+{
+  "phase": "phase5",
+  "run_id": "AEFCRC_RUN_20260917_142937_096005_09452de9aa37442a8b8d683d6ea59129",
+  "representation_id": "efficientnet_b0_6760c4f151acc2d2",
+  "random_seed": 42,
+  "winner": "P3-BASE",
+  "dataset_freeze_hash": "8693b303b5ecdf5057652689cf58a8c89d8c45d0a7bde1e0d140df00133d9fc0",
+  "fold_plan_hash": "5d6a8f7e89fc9af9bb5ae4a103670ea595fc32f3d0a55b0e4996800ea9c0a47e",
+  "selection_rule": "highest_mean_macro_f1_with_0.005_practical_equivalence_and_lowest_dimension_tiebreak",
+  "selected_fusion_arm": "EfficientNet+GLCM+LBP+LAB",
+  "selected_fusion_arm_id": "A7",
+  "selected_fusion_representation": "efficientnet_glcm_lbp_lab",
+  "selected_fusion_dimension": 1316,
+  "selected_fusion_branches": [
+    "deep",
+    "glcm",
+    "lbp",
+    "color_lab"
+  ],
+  "selected_metrics": {
+    "macro_f1_mean": 0.7269640288827768,
+    "macro_f1_std": 0.018978673705972737,
+    "balanced_accuracy_mean": 0.7263961519027522,
+    "mcc_mean": 0.617890968128731
+  },
+  "selection_metadata": {
+    "primary_metric": "macro_f1_mean",
+    "equivalence_margin": 0.005,
+    "max_macro_f1": 0.7269640288827768,
+    "candidates_considered": [
+      {
+        "arm_id": "A0",
+        "arm": "EfficientNet",
+        "dimension": 1280,
+        "macro_f1_mean": 0.709667490112606,
+        "balanced_accuracy_mean": 0.7069283656916459
+      },
+      {
+        "arm_id": "A1",
+        "arm": "EfficientNet+GLCM",
+        "dimension": 1292,
+        "macro_f1_mean": 0.7127326180929773,
+        "balanced_accuracy_mean": 0.7110292051095809
+      },
+      {
+        "arm_id": "A2",
+        "arm": "EfficientNet+LBP",
+        "dimension": 1298,
+        "macro_f1_mean": 0.7064725126257133,
+        "balanced_accuracy_mean": 0.7046361826120974
+      },
+      {
+        "arm_id": "A3",
+        "arm": "EfficientNet+HOG-PCA",
+        "dimension": 1312,
+        "macro_f1_mean": 0.7106411059618521,
+        "balanced_accuracy_mean": 0.7096979048184395
+      },
+      {
+        "arm_id": "A4",
+        "arm": "EfficientNet+LAB",
+        "dimension": 1286,
+        "macro_f1_mean": 0.7126222064972995,
+        "balanced_accuracy_mean": 0.713906046044044
+      },
+      {
+        "arm_id": "A5",
+        "arm": "EfficientNet+GLCM+LBP",
+        "dimension": 1310,
+        "macro_f1_mean": 0.7106407078284226,
+        "balanced_accuracy_mean": 0.7084956572789121
+      },
+      {
+        "arm_id": "A6",
+        "arm": "EfficientNet+GLCM+LBP+HOG-PCA+LAB",
+        "dimension": 1348,
+        "macro_f1_mean": 0.7242739094724453,
+        "balanced_accuracy_mean": 0.7238853770451155
+      },
+      {
+        "arm_id": "A7",
+        "arm": "EfficientNet+GLCM+LBP+LAB",
+        "dimension": 1316,
+        "macro_f1_mean": 0.7269640288827768,
+        "balanced_accuracy_mean": 0.7263961519027522
+      }
+    ],
+    "candidates_within_practical_performance_margin": [
+      {
+        "arm_id": "A7",
+        "arm": "EfficientNet+GLCM+LBP+LAB",
+        "dimension": 1316,
+        "macro_f1_mean": 0.7269640288827768,
+        "delta_from_max": 0.0,
+        "balanced_accuracy_mean": 0.7263961519027522
+      },
+      {
+        "arm_id": "A6",
+        "arm": "EfficientNet+GLCM+LBP+HOG-PCA+LAB",
+        "dimension": 1348,
+        "macro_f1_mean": 0.7242739094724453,
+        "delta_from_max": 0.002690119410331482,
+        "balanced_accuracy_mean": 0.7238853770451155
+      }
+    ],
+    "selected_arm_id": "A7",
+    "selection_rationale": "Arm 'EfficientNet+GLCM+LBP+LAB' (A7) selected: achieved Macro-F1=0.7270 (within 0.0050 of max 0.7270) and has lowest dimension (1316-D) among the 2 candidate(s) within the predefined practical-performance margin."
+  },
+  "timestamp": "2026-09-17T18:36:49.792732+00:00"
+}

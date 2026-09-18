@@ -56,7 +56,7 @@ from modules.feature_selection import run_selector, load_production_bda_mask
 from modules.evaluation import compute_fold_metrics, aggregate_fold_metrics
 from modules.experiment_config import representation_id, experiment_id
 from modules.calibration_handoff import CalibrationHandoff, save_calibration_handoff
-from run_aef_crc_phase6 import parse_phase5_winner  # reuse, do not duplicate
+from run_aef_crc_phase6 import parse_phase5_winner, align_phase3_winner_config  # reuse, do not duplicate
 
 
 MINORITY_CLASSES = ("Pityriasis_Rosea", "Seborrheic_Dermatitis")
@@ -174,19 +174,15 @@ def run_final_retrain(config, plan, branches, source_experiment, label_prefix=""
     if config.feature_selection_method in ("bda", "dragonfly", "dfa"):
         print(f"{label_prefix}Loading authoritative frozen production BDA mask from Phase 6 artifacts...")
         mask = load_production_bda_mask(config)
-        assert mask.shape[0] == 1348, f"Production BDA mask dimension mismatch: {mask.shape[0]} != 1348"
+        assert mask.shape[0] == data.X_train.shape[1], (
+            f"Production BDA mask dimension mismatch: {mask.shape[0]} != {data.X_train.shape[1]}"
+        )
         selected_count = int(mask.sum())
-        branch_retained = {
-            b: int(mask[start:end].sum())
-            for b, (start, end) in [
-                ("deep", (0, 1280)),
-                ("glcm", (1280, 1292)),
-                ("lbp", (1292, 1310)),
-                ("hog", (1310, 1342)),
-                ("color_lab", (1342, 1348)),
-            ]
-            if b in data.branch_dims
-        }
+        branch_retained = {}
+        offset = 0
+        for b_name, b_dim in data.branch_dims.items():
+            branch_retained[b_name] = int(mask[offset : offset + b_dim].sum())
+            offset += b_dim
     elif config.feature_selection_method == "none":
         mask = np.ones(data.X_train.shape[1], dtype=bool)
         selected_count = len(mask)
@@ -280,14 +276,14 @@ def _write_synthetic_deep_feature_cache(config, experiment_name, fold_index, spl
 
 
 def main() -> int:
-    config = get_config()
+    config, p3_winner = align_phase3_winner_config(get_config())
     validate_phase7_classifier(config.classifier_name)
     print("=== AEF-CRC Phase 7: Final Model + Evaluation Pipeline ===\n")
     print("--- Step 0: Gate check (reuses run_aef_crc_phase6.parse_phase5_winner) ---")
     winner, detail = parse_phase5_winner(config)
     print(detail)
-    print(f"classifier_name={config.classifier_name!r}, feature_selection_method={config.feature_selection_method!r} "
-          f"(both read directly from config -- Task 4: config-driven, not re-derived, not hardcoded)\n")
+    print(f"classifier_name={config.classifier_name!r}, feature_selection_method={config.feature_selection_method!r}, "
+          f"source_experiment={p3_winner!r} (Task 4: config-driven, not re-derived, not hardcoded)\n")
 
     if winner:
         print(f"Phase-5 winning arm: {winner} (branches: {ARMS[winner]})")
@@ -312,10 +308,10 @@ def main() -> int:
             return 1
 
         print("\n--- Task 1: Final CV evaluation ---")
-        run_final_cv(config, plan, ARMS[winner], winner)
+        run_final_cv(config, plan, ARMS[winner], p3_winner)
 
         print("\n--- Task 2/3: Final retrain + calibration handoff ---")
-        handoff = run_final_retrain(config, plan, ARMS[winner], winner)
+        handoff = run_final_retrain(config, plan, ARMS[winner], p3_winner)
 
         out_path = config.aef_crc_phase7_artifacts_dir / "calibration_handoff.joblib"
         save_calibration_handoff(handoff, out_path)

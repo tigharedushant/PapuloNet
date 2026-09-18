@@ -1,0 +1,129 @@
+{
+  "phase": "phase6",
+  "status": "CERTIFIED",
+  "report_generation_source": "verified_real_execution_and_persisted_artifacts",
+  "run_id": "AEFCRC_RUN_20260917_142937_096005_09452de9aa37442a8b8d683d6ea59129",
+  "representation_id": "efficientnet_b0_6760c4f151acc2d2",
+  "random_seed": 42,
+  "dataset_freeze_hash": "8693b303b5ecdf5057652689cf58a8c89d8c45d0a7bde1e0d140df00133d9fc0",
+  "fold_plan_hash": "5d6a8f7e89fc9af9bb5ae4a103670ea595fc32f3d0a55b0e4996800ea9c0a47e",
+  "upstream_phase5_winner": "A7",
+  "upstream_phase3_winner": "P3-BASE",
+  "input_arm": "EfficientNet+GLCM+LBP+LAB",
+  "input_arm_id": "A7",
+  "input_representation_id": "efficientnet_glcm_lbp_lab",
+  "input_dimension": 1316,
+  "input_branches": [
+    "deep",
+    "glcm",
+    "lbp",
+    "color_lab"
+  ],
+  "branch_dimensions": {
+    "deep": 1280,
+    "glcm": 12,
+    "lbp": 18,
+    "color_lab": 6
+  },
+  "source_experiment": "P3-BASE",
+  "primary_optimizer": "bda",
+  "comparator_optimizer": "ga",
+  "budget": {
+    "population_size": 20,
+    "iterations": 30,
+    "evaluations_per_fold": 600,
+    "total_evaluations_per_method": 3000
+  },
+  "fitness_formula": "Macro-F1_nested_val - 0.0005 * selected_feature_count",
+  "split_protocol": "Nested 80/20 stratified split inside outer training only; outer validation strictly untouched",
+  "bda_cv_results": {
+    "folds": [
+      {
+        "fold": 0,
+        "selected_features": 238,
+        "macro_f1": 0.7193
+      },
+      {
+        "fold": 1,
+        "selected_features": 97,
+        "macro_f1": 0.6727
+      },
+      {
+        "fold": 2,
+        "selected_features": 181,
+        "macro_f1": 0.7017
+      },
+      {
+        "fold": 3,
+        "selected_features": 212,
+        "macro_f1": 0.6629
+      },
+      {
+        "fold": 4,
+        "selected_features": 188,
+        "macro_f1": 0.7403
+      }
+    ],
+    "macro_f1_mean": 0.6994,
+    "macro_f1_std": 0.0287,
+    "selected_features_mean": 183.2,
+    "jaccard_stability_mean": 0.0761
+  },
+  "ga_cv_results": {
+    "folds": [
+      {
+        "fold": 0,
+        "selected_features": 351,
+        "macro_f1": 0.6921
+      },
+      {
+        "fold": 1,
+        "selected_features": 254,
+        "macro_f1": 0.7168
+      },
+      {
+        "fold": 2,
+        "selected_features": 467,
+        "macro_f1": 0.6808
+      },
+      {
+        "fold": 3,
+        "selected_features": 336,
+        "macro_f1": 0.6653
+      },
+      {
+        "fold": 4,
+        "selected_features": 233,
+        "macro_f1": 0.7187
+      }
+    ],
+    "macro_f1_mean": 0.6947,
+    "macro_f1_std": 0.0207,
+    "selected_features_mean": 328.2
+  },
+  "mcnemar_bda_vs_ga": {
+    "comparison": "bda_vs_ga",
+    "p_value": 0.9247,
+    "significant": false,
+    "interpretation": "No statistically significant difference between BDA and GA on pooled out-of-fold predictions; BDA selects 44.2% fewer features on average (183.2 vs 328.2)."
+  },
+  "production_bda_mask": {
+    "artifact_path": "artifacts/phase6/production_bda_mask.joblib",
+    "selected_features": 194,
+    "total_dimension": 1316,
+    "compression_ratio": "85.26%",
+    "branch_retained": {
+      "deep": 190,
+      "glcm": 1,
+      "lbp": 3,
+      "color_lab": 0
+    },
+    "fit_time_seconds": 1240.58
+  },
+  "provenance": {
+    "upstream_phase5_winner": "A7",
+    "upstream_phase3_winner": "P3-BASE",
+    "cohort_size": 1146,
+    "quarantined_augmentations": 264
+  }
+}

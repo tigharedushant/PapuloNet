@@ -220,7 +220,7 @@ class PSDConfig:
     feature_selection_top_k: int = 200
     rfe_step: float = 0.05  # coarse elimination schedule -- single-feature (step=1) would mean ~1300 refits/fold, indefensible
     ga_population_size: int = 20
-    ga_generations: int = 20
+    ga_generations: int = 30
     ga_mutation_rate: float = 0.05
     ga_crossover_rate: float = 0.7
     ga_feature_count_penalty: float = 0.0005  # subtracted from fitness per selected feature, keeps GA from just selecting everything

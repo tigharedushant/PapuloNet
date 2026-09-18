@@ -1,0 +1,177 @@
+{
+  "phase": "phase7",
+  "status": "CERTIFIED",
+  "report_generation_source": "persisted_handoff_artifact_and_verified_real_execution",
+  "run_id": "AEFCRC_RUN_20260917_142937_096005_09452de9aa37442a8b8d683d6ea59129",
+  "representation_id": "efficientnet_b0_6760c4f151acc2d2",
+  "experiment_id": "efficientnet_b0_6760c4f151acc2d2__random_forest__bda",
+  "random_seed": 42,
+  "dataset_freeze_hash": "8693b303b5ecdf5057652689cf58a8c89d8c45d0a7bde1e0d140df00133d9fc0",
+  "fold_plan_hash": "5d6a8f7e89fc9af9bb5ae4a103670ea595fc32f3d0a55b0e4996800ea9c0a47e",
+  "upstream_phase6_selector": "bda",
+  "upstream_phase5_winner": "A7",
+  "upstream_phase3_winner": "P3-BASE",
+  "selected_fusion_arm": "EfficientNet+GLCM+LBP+LAB",
+  "selected_fusion_arm_id": "A7",
+  "selected_fusion_dimension": 1316,
+  "selected_fusion_branches": [
+    "deep",
+    "glcm",
+    "lbp",
+    "color_lab"
+  ],
+  "source_experiment": "P3-BASE",
+  "classifier_name": "random_forest",
+  "classifier_parameters": {
+    "n_estimators": 300,
+    "criterion": "gini",
+    "max_depth": null,
+    "min_samples_split": 2,
+    "min_samples_leaf": 1,
+    "max_features": "sqrt",
+    "bootstrap": true,
+    "class_weight": null,
+    "sample_weight_source": "fold_local_sample_weights",
+    "random_state": 42
+  },
+  "feature_selection_method": "bda",
+  "production_bda_mask": {
+    "artifact_path": "artifacts/phase6/production_bda_mask.joblib",
+    "selected_features": 194,
+    "total_dimension": 1316,
+    "branch_retained": {
+      "deep": 190,
+      "glcm": 1,
+      "lbp": 3,
+      "color_lab": 0
+    }
+  },
+  "cv_evaluation": {
+    "folds": [
+      {
+        "fold": 0,
+        "selected_features": 238,
+        "macro_f1": 0.7193
+      },
+      {
+        "fold": 1,
+        "selected_features": 198,
+        "macro_f1": 0.7339
+      },
+      {
+        "fold": 2,
+        "selected_features": 199,
+        "macro_f1": 0.6292
+      },
+      {
+        "fold": 3,
+        "selected_features": 197,
+        "macro_f1": 0.6649
+      },
+      {
+        "fold": 4,
+        "selected_features": 197,
+        "macro_f1": 0.7058
+      }
+    ],
+    "macro_f1_mean": 0.6906,
+    "macro_f1_std": 0.0384,
+    "balanced_accuracy_mean": 0.6923,
+    "balanced_accuracy_std": 0.029,
+    "mcc_mean": 0.5547,
+    "mcc_std": 0.0525,
+    "accuracy_mean": 0.7303,
+    "accuracy_std": 0.0294,
+    "weighted_f1_mean": 0.7239,
+    "weighted_f1_std": 0.0357
+  },
+  "per_class_evaluation": {
+    "Psoriasis": {
+      "precision": "0.7762 +/- 0.0393",
+      "recall": "0.8276 +/- 0.0134",
+      "f1": "0.8004 +/- 0.0200",
+      "support": 638
+    },
+    "Lichen_Planus": {
+      "precision": "0.6568 +/- 0.0616",
+      "recall": "0.5115 +/- 0.1358",
+      "f1": "0.5676 +/- 0.1000",
+      "support": 258
+    },
+    "Pityriasis_Rosea": {
+      "precision": "0.6546 +/- 0.0771",
+      "recall": "0.6917 +/- 0.0681",
+      "f1": "0.6712 +/- 0.0666",
+      "support": 162
+    },
+    "Seborrheic_Dermatitis": {
+      "precision": "0.7207 +/- 0.0943",
+      "recall": "0.7386 +/- 0.0690",
+      "f1": "0.7234 +/- 0.0504",
+      "support": 88
+    }
+  },
+  "confusion_matrix_sum": [
+    [
+      528,
+      54,
+      34,
+      22
+    ],
+    [
+      98,
+      132,
+      23,
+      5
+    ],
+    [
+      39,
+      11,
+      112,
+      0
+    ],
+    [
+      17,
+      3,
+      3,
+      65
+    ]
+  ],
+  "class_order": [
+    "Psoriasis",
+    "Lichen_Planus",
+    "Pityriasis_Rosea",
+    "Seborrheic_Dermatitis"
+  ],
+  "final_production_retrain": {
+    "training_images": 1146,
+    "quarantined_augmentations_excluded": 264,
+    "calibration_images": 246,
+    "selected_features": 194,
+    "branch_retained": {
+      "deep": 190,
+      "glcm": 1,
+      "lbp": 3,
+      "color_lab": 0
+    },
+    "backbone_checkpoint": "/mnt/c/Users/ASUS/Downloads/PSD_HP_AEF_CRC_PopuloNet/PSD_HP/artifacts/phase3/P3-BASE/fold_00/best_model.keras"
+  },
+  "calibration_set_performance": {
+    "macro_f1": 0.7354,
+    "balanced_accuracy": 0.754,
+    "mcc": 0.611,
+    "accuracy": 0.7602,
+    "weighted_f1": 0.7585,
+    "n_images": 246
+  },
+  "calibration_handoff_artifact": {
+    "path": "artifacts/phase7/calibration_handoff.joblib",
+    "status": "VERIFIED_ON_DISK"
+  },
+  "locked_test": {
+    "test_images": 243,
+    "status": "UNTOUCHED",
+    "evaluated": false,
+    "lock_enforced": true
+  }
+}
