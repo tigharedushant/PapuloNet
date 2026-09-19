@@ -1,0 +1,2 @@
+method,alpha,nominal_coverage,n_samples,q_hat,mean_set_size,singleton_frac
+marginal,0.1,0.9,123,0.782165682476496,1.5528455284552845,0.4634146341463415

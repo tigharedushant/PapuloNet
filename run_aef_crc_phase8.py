@@ -37,6 +37,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from config.config import get_config
+from run_aef_crc_phase6 import align_phase3_winner_config
 from modules.calibration_handoff import (
     CalibrationHandoff, ConformalHandoff,
     load_calibration_handoff, save_conformal_handoff,
@@ -254,7 +255,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    config = get_config()
+    config, _ = align_phase3_winner_config(get_config())
     print("=== AEF-CRC Phase 8: Probability Calibration ===\n")
     print("--- Step 0: Check Phase-7 CalibrationHandoff ---")
 

@@ -5,7 +5,7 @@ Authoritative TreeSHAP implementation for the AEF-CRC framework.
 
 SCIENTIFIC CONTRACT:
 - Explains the actual production Random Forest classifier.
-- Operates on the exact BDA-selected K-dimensional feature vector (K <= 1348).
+- Operates on the exact BDA-selected K-dimensional feature vector (K = 194 of 1316 in production A7).
 - Uses TreeSHAP with feature_perturbation="tree_path_dependent".
   Note: 'tree_path_dependent' traverses tree decision paths using leaf sample counts
   to compute conditional expectations along the tree structure; it does NOT learn
@@ -21,7 +21,9 @@ SCIENTIFIC CONTRACT:
   or conformal set boundaries.
 - Persists per-class baseline expected values (shap_expected_values).
 - Persists shap_output_space ("raw"), SHAP class mapping, and K-dimensional feature ordering.
-- Maps all selected features back to global 1348-D indices, branch families, and readable names.
+- Maps all selected features back to global indices (1316-D in production A7), branch families, and readable names.
+- Production A7 layout: deep (1280), glcm (12), lbp (18), color_lab (6). Total = 1316. No HOG block.
+- Legacy 1348-D layout (A6 with 32 HOG features) is isolated as an explicit backward-compatibility path.
 
 "SHAP quantifies feature contributions to the Random Forest's raw prediction."
 """
@@ -43,16 +45,44 @@ class SHAPError(RuntimeError):
     pass
 
 
-def get_canonical_feature_names() -> List[Tuple[str, str]]:
+A7_BRANCH_DIMS: Dict[str, int] = {
+    "deep": 1280,
+    "glcm": 12,
+    "lbp": 18,
+    "color_lab": 6,
+}
+A7_FULL_DIM: int = 1316
+
+A6_BRANCH_DIMS: Dict[str, int] = {
+    "deep": 1280,
+    "glcm": 12,
+    "lbp": 18,
+    "hog": 32,
+    "color_lab": 6,
+}
+A6_FULL_DIM: int = 1348
+
+
+def get_canonical_feature_names(layout: str = "A7") -> List[Tuple[str, str]]:
     """
-    Returns the canonical 1348-D feature definitions as (branch, feature_name).
-    Strictly adheres to the Phase 4 feature schema:
+    Returns the canonical feature definitions as (branch, feature_name).
+    By default (layout="A7"), strictly adheres to the production A7 1316-D schema:
+      - 0:1280      EfficientNet-B0 deep features (1280)
+      - 1280:1292  GLCM Texture properties (12)
+      - 1292:1310  LBP Texture histogram bins (18)
+      - 1310:1316  LAB Color Statistics (6)
+      Total = 1316. No HOG features.
+
+    If layout="A6" (legacy compatibility mode), adheres to the 1348-D schema:
       - 0:1280      EfficientNet-B0 (1280)
-      - 1280:1292  GLCM Texture (12)
-      - 1292:1310  LBP Texture (18)
+      - 1280:1292  GLCM (12)
+      - 1292:1310  LBP (18)
       - 1310:1342  HOG-PCA (32)
-      - 1342:1348  LAB Color Statistics (6)
+      - 1342:1348  LAB (6)
+      Total = 1348.
     """
+    layout_upper = str(layout).upper()
+    is_legacy_a6 = layout_upper == "A6" or layout in ("1348", 1348)
     names: List[Tuple[str, str]] = []
 
     # 1. EfficientNet-B0 deep features (1280)
@@ -69,16 +99,58 @@ def get_canonical_feature_names() -> List[Tuple[str, str]]:
     for bin_idx in range(18):
         names.append(("lbp", f"lbp_bin_{bin_idx:02d}"))
 
-    # 4. HOG-PCA components (32)
-    for comp in range(32):
-        names.append(("hog", f"hog_pca_comp_{comp:02d}"))
+    # 4. HOG-PCA components (32) -- ONLY present in legacy A6 layout
+    if is_legacy_a6:
+        for comp in range(32):
+            names.append(("hog", f"hog_pca_comp_{comp:02d}"))
 
     # 5. LAB color statistics (6)
     for stat in ("L_mean", "a_mean", "b_mean", "L_std", "a_std", "b_std"):
         names.append(("color_lab", f"color_lab_{stat}"))
 
-    assert len(names) == 1348, f"Feature registry must have 1348 dimensions, got {len(names)}"
+    expected = A6_FULL_DIM if is_legacy_a6 else A7_FULL_DIM
+    assert len(names) == expected, f"Feature registry expected {expected} dimensions, got {len(names)}"
     return names
+
+
+def validate_production_shap_contract(
+    classifier: Any,
+    selected_feature_mask: np.ndarray,
+    expected_full_dim: int = A7_FULL_DIM,
+    expected_k_features: int = 194,
+    branch_dims: Optional[Dict[str, int]] = None,
+) -> None:
+    """
+    Strict validation of the Phase 10 / SHAP production contract:
+      - Full feature dimension must equal 1316 (A7: deep 1280, glcm 12, lbp 18, color_lab 6).
+      - BDA mask must be 1-D boolean array of length 1316.
+      - Number of selected active features must equal 194.
+      - Classifier n_features_in_ must equal 194.
+      - No HOG block in production branch dimensions.
+    """
+    mask = np.asarray(selected_feature_mask, dtype=bool)
+    if mask.ndim != 1:
+        raise SHAPError(f"BDA mask must be 1-D, got shape {mask.shape}")
+    if mask.shape[0] != expected_full_dim:
+        raise SHAPError(
+            f"Production BDA mask dimension mismatch: expected {expected_full_dim}, got {mask.shape[0]}"
+        )
+    k = int(np.sum(mask))
+    if k != expected_k_features:
+        raise SHAPError(
+            f"Production selected features mismatch: expected {expected_k_features}, got {k}"
+        )
+    n_in = getattr(classifier, "n_features_in_", None)
+    if n_in is not None and n_in != expected_k_features:
+        raise SHAPError(
+            f"Production classifier expects {n_in} features, but mask selects {expected_k_features}"
+        )
+    if branch_dims is not None:
+        if "hog" in branch_dims and branch_dims["hog"] > 0:
+            raise SHAPError("Production A7 layout strictly forbids HOG features.")
+        b_sum = sum(branch_dims.values())
+        if b_sum != expected_full_dim:
+            raise SHAPError(f"branch_dims sum ({b_sum}) != expected full dim ({expected_full_dim})")
 
 
 @dataclass
@@ -161,6 +233,8 @@ class ProductionTreeSHAPExplainer:
         classifier: Any,
         selected_feature_mask: np.ndarray,
         classes: List[str],
+        branch_dims: Optional[Dict[str, int]] = None,
+        expected_full_dim: Optional[int] = None,
     ) -> None:
         """
         Parameters
@@ -168,19 +242,57 @@ class ProductionTreeSHAPExplainer:
         classifier : Any
             Fitted production Random Forest classifier.
         selected_feature_mask : np.ndarray
-            Boolean mask of shape (1348,) from Phase 6 BDA.
+            Boolean mask of shape (1316,) from Phase 6 BDA (or 1348 for legacy A6).
         classes : List[str]
             Canonical disease class names (length 4).
+        branch_dims : Optional[Dict[str, int]]
+            Feature branch dimensions (e.g. {'deep': 1280, 'glcm': 12, 'lbp': 18, 'color_lab': 6}).
+        expected_full_dim : Optional[int]
+            Expected full fused dimension (default: 1316 for production A7).
         """
         import shap
 
         self.classifier = classifier
         self.mask = np.asarray(selected_feature_mask, dtype=bool)
-        if self.mask.shape[0] != 1348:
-            raise SHAPError(f"BDA mask must have length 1348, got {self.mask.shape[0]}")
+        if self.mask.ndim != 1:
+            raise SHAPError(f"BDA mask must be 1-dimensional, got {self.mask.ndim}-D array of shape {self.mask.shape}")
+
+        mask_len = self.mask.shape[0]
+
+        if expected_full_dim is not None:
+            if mask_len != expected_full_dim:
+                raise SHAPError(f"BDA mask dimension mismatch: expected {expected_full_dim}, got {mask_len}")
+            self.full_dim = expected_full_dim
+        elif branch_dims is not None:
+            sum_dim = sum(branch_dims.values())
+            if mask_len != sum_dim:
+                raise SHAPError(f"BDA mask dimension ({mask_len}) does not match branch_dims sum ({sum_dim})")
+            self.full_dim = sum_dim
+        elif mask_len == A7_FULL_DIM:
+            # Authoritative production A7
+            self.full_dim = A7_FULL_DIM
+        elif mask_len == A6_FULL_DIM:
+            # Legacy A6 compatibility
+            self.full_dim = A6_FULL_DIM
+        else:
+            raise SHAPError(
+                f"BDA mask dimension mismatch: expected production A7 dimension {A7_FULL_DIM} "
+                f"(or legacy {A6_FULL_DIM}), got {mask_len}."
+            )
+
+        self.layout = "A7" if self.full_dim == A7_FULL_DIM else "A6"
+        self.branch_dims = branch_dims or (A7_BRANCH_DIMS if self.layout == "A7" else A6_BRANCH_DIMS)
+
+        # Enforce production contract: if layout is A7, verify no HOG
+        if self.layout == "A7":
+            if "hog" in self.branch_dims and self.branch_dims["hog"] > 0:
+                raise SHAPError("Production A7 layout strictly forbids HOG features.")
 
         self.classes = list(classes)
         self.k_features = int(np.sum(self.mask))
+        if self.k_features == 0:
+            raise SHAPError("BDA mask has 0 features selected; cannot explain classifier.")
+
         self.global_indices = np.where(self.mask)[0]
 
         # Verify classifier input dimension matches selected features
@@ -191,7 +303,7 @@ class ProductionTreeSHAPExplainer:
             )
 
         # Build feature registry mapping
-        self.canonical_names = get_canonical_feature_names()
+        self.canonical_names = get_canonical_feature_names(layout=self.layout)
         self.selected_feature_names = [self.canonical_names[idx][1] for idx in self.global_indices]
 
         # Initialize TreeExplainer with frozen path-dependent perturbation and raw prediction output
@@ -254,18 +366,31 @@ class ProductionTreeSHAPExplainer:
     ) -> SHAPExplanationResult:
         """
         Computes SHAP attributions for the specified target class.
-        Accepts either a 1348-D fused vector or an already-masked K-dimensional vector.
+
+        Parameters
+        ----------
+        features : np.ndarray
+            Input feature vector. Accepts either:
+            - Full fused vector (1316-D for production A7, or 1348-D for legacy A6).
+              Masking to the active K features is performed internally using self.mask.
+            - Already-masked K-dimensional vector (K = 194 in production A7).
+              Used directly without re-masking (masked_input = arr.reshape(1, -1)).
+        raw_probabilities : Optional[np.ndarray]
+            Raw uncalibrated classifier prediction probabilities. If None, derived via predict_proba.
+        target_class : Optional[Union[str, int]]
+            Target disease class name or index to explain.
         """
         arr = np.asarray(features).flatten()
 
         # 1. Format into exact K-dimensional input
-        if arr.shape[0] == 1348:
+        if arr.shape[0] == self.full_dim:
             masked_input = arr[self.mask].reshape(1, -1)
         elif arr.shape[0] == self.k_features:
             masked_input = arr.reshape(1, -1)
         else:
             raise SHAPError(
-                f"Input features dimension ({arr.shape[0]}) matches neither 1348 nor K={self.k_features}."
+                f"Input features dimension ({arr.shape[0]}) matches neither full dimension "
+                f"{self.full_dim} nor K={self.k_features}."
             )
 
         # 2. Derive or validate raw probabilities
@@ -341,13 +466,14 @@ class ProductionTreeSHAPExplainer:
         feature_contributions.sort(key=lambda x: x.abs_shap_value, reverse=True)
 
         # 7. Compute branch-level aggregate contributions
-        branches = ["deep", "glcm", "lbp", "hog", "color_lab"]
+        branches = list(self.branch_dims.keys())
         branch_sums: Dict[str, float] = {b: 0.0 for b in branches}
         branch_counts: Dict[str, int] = {b: 0 for b in branches}
 
         for feat in feature_contributions:
-            branch_sums[feat.branch] += feat.abs_shap_value
-            branch_counts[feat.branch] += 1
+            if feat.branch in branch_sums:
+                branch_sums[feat.branch] += feat.abs_shap_value
+                branch_counts[feat.branch] += 1
 
         total_abs = sum(branch_sums.values())
         block_contributions: List[SHAPBlockContribution] = []

@@ -1,0 +1,5 @@
+class,val_calib_count,val_conf_count,total_outer_val_count
+Psoriasis,68,69,137
+Lichen_Planus,27,28,55
+Pityriasis_Rosea,18,17,35
+Seborrheic_Dermatitis,10,9,19

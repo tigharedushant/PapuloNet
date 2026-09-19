@@ -1,0 +1,152 @@
+{
+  "classes": [
+    "Psoriasis",
+    "Lichen_Planus",
+    "Pityriasis_Rosea",
+    "Seborrheic_Dermatitis"
+  ],
+  "n_total": 246,
+  "flips_total": 97,
+  "non_pso_to_pso": 97,
+  "pso_to_non_pso": 0,
+  "other_to_other": 0,
+  "flips_breakdown": {
+    "Lichen_Planus -> Psoriasis": 44,
+    "Pityriasis_Rosea -> Psoriasis": 31,
+    "Seborrheic_Dermatitis -> Psoriasis": 22
+  },
+  "true_counts": {
+    "Psoriasis": 137,
+    "Lichen_Planus": 55,
+    "Pityriasis_Rosea": 35,
+    "Seborrheic_Dermatitis": 19
+  },
+  "raw_counts": {
+    "Psoriasis": 141,
+    "Lichen_Planus": 45,
+    "Pityriasis_Rosea": 36,
+    "Seborrheic_Dermatitis": 24
+  },
+  "calib_counts": {
+    "Psoriasis": 238,
+    "Lichen_Planus": 1,
+    "Pityriasis_Rosea": 5,
+    "Seborrheic_Dermatitis": 2
+  },
+  "cm_raw": [
+    [
+      113,
+      12,
+      6,
+      6
+    ],
+    [
+      17,
+      32,
+      5,
+      1
+    ],
+    [
+      10,
+      1,
+      24,
+      0
+    ],
+    [
+      1,
+      0,
+      1,
+      17
+    ]
+  ],
+  "cm_calib": [
+    [
+      137,
+      0,
+      0,
+      0
+    ],
+    [
+      53,
+      1,
+      1,
+      0
+    ],
+    [
+      31,
+      0,
+      4,
+      0
+    ],
+    [
+      17,
+      0,
+      0,
+      2
+    ]
+  ],
+  "raw_macro_f1": 0.7299259131836359,
+  "calib_macro_f1": 0.2892142857142857,
+  "raw_bal_acc": 0.7467717069714764,
+  "calib_bal_acc": 0.3094326725905673,
+  "raw_acc": 0.7560975609756098,
+  "calib_acc": 0.5853658536585366,
+  "raw_mcc": 0.6023316156989827,
+  "calib_mcc": 0.21348331531624024,
+  "row_sums_stats": {
+    "min": 0.8459016288795599,
+    "max": 1.1404655406534299,
+    "mean": 1.003876824648882,
+    "std": 0.06915033759483248
+  },
+  "subset_results": {
+    "ALL_246": {
+      "n": 246,
+      "flips": 97,
+      "non_pso_to_pso": 97,
+      "pso_to_non_pso": 0,
+      "raw_pso_count": 141,
+      "calib_pso_count": 238,
+      "raw_macro_f1": 0.7299259131836359,
+      "calib_macro_f1": 0.2892142857142857,
+      "raw_bal_acc": 0.7467717069714764,
+      "calib_bal_acc": 0.3094326725905673,
+      "raw_acc": 0.7560975609756098,
+      "calib_acc": 0.5853658536585366,
+      "raw_mcc": 0.6023316156989827,
+      "calib_mcc": 0.21348331531624024
+    },
+    "val_calib_123": {
+      "n": 123,
+      "flips": 53,
+      "non_pso_to_pso": 53,
+      "pso_to_non_pso": 0,
+      "raw_pso_count": 66,
+      "calib_pso_count": 119,
+      "raw_macro_f1": 0.7196606437168334,
+      "calib_macro_f1": 0.2701298701298701,
+      "raw_bal_acc": 0.7411220043572984,
+      "calib_bal_acc": 0.29814814814814816,
+      "raw_acc": 0.7479674796747967,
+      "calib_acc": 0.5772357723577236,
+      "raw_mcc": 0.5992969938755891,
+      "calib_mcc": 0.1893688538452683
+    },
+    "val_conf_123": {
+      "n": 123,
+      "flips": 44,
+      "non_pso_to_pso": 44,
+      "pso_to_non_pso": 0,
+      "raw_pso_count": 75,
+      "calib_pso_count": 119,
+      "raw_macro_f1": 0.7386621315192744,
+      "calib_macro_f1": 0.30851063829787234,
+      "raw_bal_acc": 0.7536840823285835,
+      "calib_bal_acc": 0.32189542483660133,
+      "raw_acc": 0.7642276422764228,
+      "calib_acc": 0.5934959349593496,
+      "raw_mcc": 0.6073590766612751,
+      "calib_mcc": 0.23830129321895654
+    }
+  }
+}

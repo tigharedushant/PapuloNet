@@ -230,9 +230,12 @@ class GradCAMExplainer:
 
                 # 2. Global Average Pooling (matching Phase 3 pooling='avg')
                 pooled_features = tf.reduce_mean(conv_output, axis=[1, 2])
+                pooled_features_f32 = tf.cast(pooled_features, tf.float32)
+                dense_kernel_f32 = tf.cast(self.dense_kernel, tf.float32)
+                dense_bias_f32 = tf.cast(self.dense_bias, tf.float32)
 
                 # 3. Linear projection to pre-softmax logit (EXACT Phase 3 Dense weights, STRICTLY NO SOFTMAX)
-                logits = tf.matmul(pooled_features, self.dense_kernel) + self.dense_bias
+                logits = tf.matmul(pooled_features_f32, dense_kernel_f32) + dense_bias_f32
 
                 # 4. Resolve target class index
                 if target_class is None:
@@ -253,10 +256,11 @@ class GradCAMExplainer:
                 raise GradCAMError("Gradient calculation returned None; gradient tape was broken.")
 
             # 7. Channel-wise importance weighting (Global Average Pooling of gradients)
-            weights = tf.reduce_mean(grads, axis=[1, 2], keepdims=True)
+            weights = tf.cast(tf.reduce_mean(grads, axis=[1, 2], keepdims=True), tf.float32)
+            conv_f32 = tf.cast(conv_output, tf.float32)
 
             # 8. Weighted linear combination of feature maps
-            cam = tf.reduce_sum(weights * conv_output, axis=-1)[0]
+            cam = tf.reduce_sum(weights * conv_f32, axis=-1)[0]
 
             # 9. Apply ReLU: keep features with positive influence on target logit
             cam = tf.maximum(cam, 0.0)

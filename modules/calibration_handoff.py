@@ -99,24 +99,31 @@ class CalibrationHandoff:
 def validate_bda_mask_compatibility(
     mask: np.ndarray,
     classifier: Any,
-    expected_dim: int = 1348,
+    expected_dim: Optional[int] = None,
 ) -> None:
     """
     Strict validation of the persisted production BDA mask:
       - mask must be 1-D boolean array
-      - mask length must exactly equal expected_dim (1348)
-      - selected count must be > 0 and <= expected_dim
+      - mask length must equal expected_dim (or in (1316, 1348) if expected_dim is None)
+      - selected count must be > 0 and <= mask.shape[0]
       - if classifier exposes n_features_in_, mask.sum() must equal classifier.n_features_in_
     """
     if not isinstance(mask, np.ndarray):
         raise TypeError(f"BDA mask must be a numpy ndarray, got {type(mask)}")
     if mask.ndim != 1:
         raise ValueError(f"BDA mask must be 1-dimensional, got {mask.ndim}-D array of shape {mask.shape}")
-    if mask.shape[0] != expected_dim:
-        raise ValueError(
-            f"BDA mask dimension mismatch: expected fused feature dimension {expected_dim}, "
-            f"got {mask.shape[0]}"
-        )
+    if expected_dim is not None:
+        if mask.shape[0] != expected_dim:
+            raise ValueError(
+                f"BDA mask dimension mismatch: expected fused feature dimension {expected_dim}, "
+                f"got {mask.shape[0]}"
+            )
+    else:
+        if mask.shape[0] not in (1316, 1348):
+            raise ValueError(
+                f"BDA mask dimension mismatch: expected fused feature dimension in (1316, 1348), "
+                f"got {mask.shape[0]}"
+            )
     if mask.dtype != bool:
         raise TypeError(f"BDA mask must have boolean dtype, got {mask.dtype}")
     selected_count = int(mask.sum())

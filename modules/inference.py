@@ -264,24 +264,33 @@ class AEFCRCInferenceEngine:
         glcm_feats = fv.glcm.flatten()
         lbp_feats = fv.lbp.flatten()
 
-        # HOG-PCA (32-D: 1310:1342) - strictly consume fitted reducer from training handoff
-        hog_raw = fv.hog.flatten()
-        hog_reducer = getattr(self.artifact, "hog_reducer", None)
-        if hog_reducer is None:
-            raise RuntimeError(
-                "Inference artifact is missing 'hog_reducer' (FoldSafeFeatureReducer). "
-                "HOG-PCA (32-D) requires the fitted reducer from the training pipeline handoff."
-            )
-        hog_feats = hog_reducer.transform([hog_raw])[0]
+        branch_dims = getattr(self.artifact, "branch_dims", None)
+        is_a7 = (branch_dims is not None and "hog" not in branch_dims) or (
+            self.mask is not None and self.mask.shape[0] == 1316
+        )
 
-        # LAB color statistics (6-D: 1342:1348)
+        if not is_a7:
+            # HOG-PCA (32-D: 1310:1342) - strictly consume fitted reducer from training handoff
+            hog_raw = fv.hog.flatten()
+            hog_reducer = getattr(self.artifact, "hog_reducer", None)
+            if hog_reducer is None:
+                raise RuntimeError(
+                    "Inference artifact is missing 'hog_reducer' (FoldSafeFeatureReducer). "
+                    "HOG-PCA (32-D) requires the fitted reducer from the training pipeline handoff."
+                )
+            hog_feats = hog_reducer.transform([hog_raw])[0]
+        else:
+            hog_feats = None
+
+        # LAB color statistics (6-D)
         lab_feats = fv.color_lab.flatten() if fv.color_lab is not None else np.zeros(6, dtype=np.float32)
 
         # Assert exact raw branch dimensions
         assert deep_feats.shape[0] == 1280, f"Expected 1280 deep features, got {deep_feats.shape[0]}"
         assert glcm_feats.shape[0] == 12, f"Expected 12 GLCM features, got {glcm_feats.shape[0]}"
         assert lbp_feats.shape[0] == 18, f"Expected 18 LBP features, got {lbp_feats.shape[0]}"
-        assert hog_feats.shape[0] == 32, f"Expected 32 HOG-PCA features, got {hog_feats.shape[0]}"
+        if not is_a7:
+            assert hog_feats.shape[0] == 32, f"Expected 32 HOG-PCA features, got {hog_feats.shape[0]}"
         assert lab_feats.shape[0] == 6, f"Expected 6 LAB features, got {lab_feats.shape[0]}"
 
         # 3. Apply fitted FeatureNormalizers per branch (from training pipeline handoff)
@@ -295,14 +304,17 @@ class AEFCRCInferenceEngine:
         norm_deep = normalizers["deep"].transform([deep_feats])[0] if "deep" in normalizers else deep_feats
         norm_glcm = normalizers["glcm"].transform([glcm_feats])[0] if "glcm" in normalizers else glcm_feats
         norm_lbp = normalizers["lbp"].transform([lbp_feats])[0] if "lbp" in normalizers else lbp_feats
-        norm_hog = normalizers["hog"].transform([hog_feats])[0] if "hog" in normalizers else hog_feats
         norm_lab = normalizers["color_lab"].transform([lab_feats])[0] if "color_lab" in normalizers else (
             normalizers["lab"].transform([lab_feats])[0] if "lab" in normalizers else lab_feats
         )
 
-        # Fused vector in canonical concatenation order
-        fused = np.concatenate([norm_deep, norm_glcm, norm_lbp, norm_hog, norm_lab])
-        assert fused.shape[0] == 1348, f"Expected 1348 fused features, got {fused.shape[0]}"
+        if not is_a7:
+            norm_hog = normalizers["hog"].transform([hog_feats])[0] if "hog" in normalizers else hog_feats
+            fused = np.concatenate([norm_deep, norm_glcm, norm_lbp, norm_hog, norm_lab])
+            assert fused.shape[0] == 1348, f"Expected 1348 fused features, got {fused.shape[0]}"
+        else:
+            fused = np.concatenate([norm_deep, norm_glcm, norm_lbp, norm_lab])
+            assert fused.shape[0] == 1316, f"Expected 1316 fused features, got {fused.shape[0]}"
         return fused
 
     # -------------------------------------------------------------------------
@@ -478,7 +490,7 @@ class AEFCRCInferenceEngine:
             device_metadata={"device_configured": self.device},
             diagnostics={
                 "input_dimensions": img.size,
-                "fused_dimensions": 1348,
+                "fused_dimensions": int(self.mask.shape[0]) if self.mask is not None else 1316,
                 "selected_dimensions": int(self.mask.sum()),
             },
         )
@@ -545,7 +557,12 @@ class AEFCRCInferenceEngine:
         try:
             from modules.xai_shap import RFSHAPExplainer
             if self._shap_explainer is None:
-                self._shap_explainer = RFSHAPExplainer(self.classifier, self.mask, self.classes)
+                self._shap_explainer = RFSHAPExplainer(
+                    self.classifier,
+                    self.mask,
+                    self.classes,
+                    branch_dims=getattr(self.artifact, "branch_dims", None),
+                )
 
             shap_data = self._shap_explainer.explain(masked_feats, target_class=target_class)
             shap_evs = shap_data.per_class_expected_values

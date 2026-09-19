@@ -33,10 +33,17 @@ from modules.conformal import (
 from modules.calibration import partition_outer_validation
 from modules.calibration_handoff import (
     validate_bda_mask_compatibility,
+    validate_conformal_handoff_provenance,
+    ConformalHandoff,
     ConformalArtifact,
     save_conformal_artifact,
     load_conformal_artifact,
+    load_conformal_handoff,
+    get_active_run_id,
 )
+from config.config import get_config
+from run_aef_crc_phase6 import align_phase3_winner_config
+from modules.experiment_config import representation_id
 
 CLASSES = ["Psoriasis", "Lichen_Planus", "Pityriasis_Rosea", "Seborrheic_Dermatitis"]
 
@@ -243,3 +250,148 @@ def test_conformal_artifact_serialization_round_trip(tmp_path):
     assert reloaded.alpha == 0.10
     assert reloaded.n_conf_samples == 123
     assert reloaded.calibration_method == "platt"
+
+
+# ============================================================
+# 7. Phase 9 Provenance & P3-BASE Alignment Validation
+# ============================================================
+
+def test_phase9_config_alignment_with_p3_base_winner():
+    """
+    Verifies that aligning config with the authoritative Phase 3 winner (P3-BASE)
+    yields the exact expected representation_id: efficientnet_b0_6760c4f151acc2d2,
+    whereas raw unaligned config produces the stale default b43260d357d5e51f.
+    """
+    raw_config = get_config()
+    raw_repr = representation_id(raw_config)
+    assert raw_repr == "efficientnet_b0_b43260d357d5e51f"
+
+    aligned_config, winner_name = align_phase3_winner_config(get_config())
+    aligned_repr = representation_id(aligned_config)
+    assert aligned_repr == "efficientnet_b0_6760c4f151acc2d2"
+    assert winner_name == "P3-BASE"
+
+
+def test_phase9_validate_conformal_handoff_provenance_strictness():
+    """
+    Verifies that validate_conformal_handoff_provenance:
+    - Accepts valid handoffs with the authoritative P3-BASE representation_id
+    - Strictly rejects mismatched representation_id (including the stale b43260d357d5e51f)
+    - Strictly rejects mismatched random_seed
+    """
+    aligned_config, _ = align_phase3_winner_config(get_config())
+    active_run_id = get_active_run_id(aligned_config) or ""
+    classes = ["Psoriasis", "Lichen_Planus", "Pityriasis_Rosea", "Seborrheic_Dermatitis"]
+
+    valid_handoff = ConformalHandoff(
+        run_id=active_run_id,
+        representation_id="efficientnet_b0_6760c4f151acc2d2",
+        experiment_id="P3-BASE",
+        classifier_name="random_forest",
+        feature_selection_method="bda",
+        random_seed=42,
+        class_order=classes,
+        final_classifier=object(),
+        selected_feature_mask=np.ones(194, dtype=bool),
+        branch_dims={"deep": 1280, "glcm": 12, "lbp": 18, "color_lab": 6},
+        calibration_method="platt",
+        calibration_method_reason="Frozen primary method: Platt scaling",
+        val_conf_psd_ids=[f"CONF_{i:04d}" for i in range(123)],
+        val_conf_true_labels=["Psoriasis"] * 123,
+        val_conf_calibrated_probabilities=np.ones((123, 4)) / 4.0,
+        alpha=0.10,
+    )
+
+    # Valid handoff must pass
+    validate_conformal_handoff_provenance(valid_handoff, aligned_config)
+
+    # Stale / mismatched representation_id must be strictly rejected
+    stale_handoff = ConformalHandoff(
+        run_id=active_run_id,
+        representation_id="efficientnet_b0_b43260d357d5e51f",
+        experiment_id="P3-BASE",
+        classifier_name="random_forest",
+        feature_selection_method="bda",
+        random_seed=42,
+        class_order=classes,
+        final_classifier=object(),
+        selected_feature_mask=np.ones(194, dtype=bool),
+        branch_dims={"deep": 1280, "glcm": 12, "lbp": 18, "color_lab": 6},
+        calibration_method="platt",
+        calibration_method_reason="Frozen primary method: Platt scaling",
+        val_conf_psd_ids=[f"CONF_{i:04d}" for i in range(123)],
+        val_conf_true_labels=["Psoriasis"] * 123,
+        val_conf_calibrated_probabilities=np.ones((123, 4)) / 4.0,
+        alpha=0.10,
+    )
+    with pytest.raises(RuntimeError, match="representation_id"):
+        validate_conformal_handoff_provenance(stale_handoff, aligned_config)
+
+    # Mismatched random seed must be strictly rejected
+    seed_mismatch_handoff = ConformalHandoff(
+        run_id=active_run_id,
+        representation_id="efficientnet_b0_6760c4f151acc2d2",
+        experiment_id="P3-BASE",
+        classifier_name="random_forest",
+        feature_selection_method="bda",
+        random_seed=999,
+        class_order=classes,
+        final_classifier=object(),
+        selected_feature_mask=np.ones(194, dtype=bool),
+        branch_dims={"deep": 1280, "glcm": 12, "lbp": 18, "color_lab": 6},
+        calibration_method="platt",
+        calibration_method_reason="Frozen primary method: Platt scaling",
+        val_conf_psd_ids=[f"CONF_{i:04d}" for i in range(123)],
+        val_conf_true_labels=["Psoriasis"] * 123,
+        val_conf_calibrated_probabilities=np.ones((123, 4)) / 4.0,
+        alpha=0.10,
+    )
+    with pytest.raises(RuntimeError, match="random_seed"):
+        validate_conformal_handoff_provenance(seed_mismatch_handoff, aligned_config)
+
+    # Mismatched run_id must be strictly rejected
+    run_id_mismatch_handoff = ConformalHandoff(
+        run_id="DIFFERENT_RUN_ID",
+        representation_id="efficientnet_b0_6760c4f151acc2d2",
+        experiment_id="P3-BASE",
+        classifier_name="random_forest",
+        feature_selection_method="bda",
+        random_seed=42,
+        class_order=classes,
+        final_classifier=object(),
+        selected_feature_mask=np.ones(194, dtype=bool),
+        branch_dims={"deep": 1280, "glcm": 12, "lbp": 18, "color_lab": 6},
+        calibration_method="platt",
+        calibration_method_reason="Frozen primary method: Platt scaling",
+        val_conf_psd_ids=[f"CONF_{i:04d}" for i in range(123)],
+        val_conf_true_labels=["Psoriasis"] * 123,
+        val_conf_calibrated_probabilities=np.ones((123, 4)) / 4.0,
+        alpha=0.10,
+    )
+    with pytest.raises(RuntimeError, match="run_id"):
+        validate_conformal_handoff_provenance(run_id_mismatch_handoff, aligned_config)
+
+
+def test_phase9_existing_phase8_artifact_passes_provenance():
+    """
+    Verifies that the actual Phase 8 artifact on disk passes provenance validation
+    under the aligned Phase 3 winner configuration, and is rejected under unaligned config.
+    """
+    aligned_config, _ = align_phase3_winner_config(get_config())
+    handoff_path = aligned_config.aef_crc_phase8_artifacts_dir / "conformal_handoff.joblib"
+    if not handoff_path.exists():
+        pytest.skip("Phase 8 artifact conformal_handoff.joblib not present on disk.")
+
+    real_handoff = load_conformal_handoff(handoff_path)
+    assert real_handoff.representation_id == "efficientnet_b0_6760c4f151acc2d2"
+    assert real_handoff.calibration_method == "platt"
+    assert len(real_handoff.val_conf_true_labels) == 123
+
+    # Aligned config accepts the artifact
+    validate_conformal_handoff_provenance(real_handoff, aligned_config)
+
+    # Raw unaligned config rejects the artifact with RuntimeError
+    raw_config = get_config()
+    with pytest.raises(RuntimeError, match="Cross-run artifact provenance mismatch"):
+        validate_conformal_handoff_provenance(real_handoff, raw_config)
+

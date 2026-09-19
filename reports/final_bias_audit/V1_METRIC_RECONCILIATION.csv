@@ -1,0 +1,9 @@
+Pipeline_Stage,Feature_Dim,Classifier,Evaluation_Split,Macro_F1,Balanced_Acc,Accuracy,MCC,Pso_Recall,LP_Recall,PR_Recall,SD_Recall,Pso_Pred_Pct
+Phase 3: Deep Baseline (P3-BASE),1280,Dense Softmax Head,5-Fold CV (N=1146),0.7099,0.7637,0.733,0.5987,0.7163,0.6823,0.8269,0.8294,46.3%
+Phase 4: Handcrafted Only (Combined),68,Random Forest,5-Fold CV (N=1146),0.5275,0.6014,0.5986,0.3652,0.7382,0.4419,0.5802,0.6477,53.8%
+Phase 5: Multimodal Fusion (A7),1316,Random Forest,5-Fold CV (N=1146),0.727,0.7264,0.7513,0.6179,0.8417,0.6124,0.7099,0.7412,58.2%
+Phase 6: BDA Feature Selection,194,Random Forest,5-Fold CV (N=1146),0.6994,0.698,0.735,0.572,0.835,0.531,0.685,0.741,59.1%
+Phase 7: Final Retrained RF (CV),194,Random Forest,5-Fold CV (N=1146),0.6906,0.6923,0.7303,0.5547,0.8276,0.5115,0.6917,0.7386,59.5%
+Phase 7: Final RF on Holdout Calibration,194,Random Forest (Raw),Outer Val (N=246),0.7299,0.7468,0.7561,0.6023,0.9343,0.7925,0.6486,0.5789,57.3%
+Phase 8: Platt Calibrated Decision (V1),194,Platt Argmax,Outer Val (N=246),0.2892,0.3094,0.5854,0.2135,1.0,0.1132,0.027,0.0,96.75%
+Phase 8: Isotonic Calibrated Comparator,194,Isotonic Argmax,Outer Val (N=123),0.7876,0.795,0.8049,0.672,0.9265,0.8148,0.7222,0.7,56.9%

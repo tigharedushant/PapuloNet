@@ -50,6 +50,7 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from config.config import get_config
+from run_aef_crc_phase6 import align_phase3_winner_config
 from modules.calibration_handoff import (
     ConformalHandoff, ConformalArtifact, FinalPipelineHandoff,
     load_conformal_handoff, save_conformal_artifact, save_final_pipeline_handoff,
@@ -194,9 +195,14 @@ def main() -> int:
         action="store_true",
         help="Run synthetic plumbing verification only (does not produce research results)",
     )
+    parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="Run preflight checks (validates handoff existence and provenance without running calibration)",
+    )
     args = parser.parse_args()
 
-    config = get_config()
+    config, _ = align_phase3_winner_config(get_config())
     print("=== AEF-CRC Phase 9: Conformal Prediction ===\n")
     print("--- Step 0: Check Phase-8 ConformalHandoff ---")
 
@@ -207,6 +213,10 @@ def main() -> int:
         print(f"Loaded real Phase-8 handoff from {handoff_path}")
         print(f"  representation_id={handoff.representation_id}")
         print(f"  calibration_method={handoff.calibration_method} (Primary: Platt)\n")
+
+        if args.preflight:
+            print("PHASE 9 PREFLIGHT: PASS (Conformal handoff provenance and compatibility verified).")
+            return 0
 
         final_artifact = run_conformal_calibration(config, handoff)
 
