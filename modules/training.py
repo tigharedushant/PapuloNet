@@ -139,11 +139,14 @@ def _safe_load_model(ckpt_path: Path, max_retries: int = 15, delay: float = 1.0)
     from modules.backbones import get_backbone
 
     ckpt_path = Path(ckpt_path)
+    from modules.losses import CategoricalFocalLoss
+    custom_objs = {"CategoricalFocalLoss": CategoricalFocalLoss}
+
     for attempt in range(max_retries):
         try:
             if ckpt_path.exists() and zipfile.is_zipfile(str(ckpt_path)):
                 try:
-                    return tf.keras.models.load_model(ckpt_path, compile=False)
+                    return tf.keras.models.load_model(ckpt_path, compile=False, custom_objects=custom_objs)
                 except Exception:
                     config = get_config()
                     backbone_spec = get_backbone(config.backbone)
@@ -159,7 +162,7 @@ def _safe_load_model(ckpt_path: Path, max_retries: int = 15, delay: float = 1.0)
         time.sleep(delay)
 
     try:
-        return tf.keras.models.load_model(ckpt_path, compile=False)
+        return tf.keras.models.load_model(ckpt_path, compile=False, custom_objects=custom_objs)
     except Exception:
         config = get_config()
         backbone_spec = get_backbone(config.backbone)
@@ -324,17 +327,19 @@ def run_experiment(
         # recomputed here, just passed through, so there is exactly one
         # place in the codebase that formula lives. Delivered via
         # sample_weight now, not class_weight -- see fix 1.
+        use_weights = getattr(config, "use_class_weights", True)
+        fold_train_weights = fold.class_weights if use_weights else None
+
         train_ds = build_dataset(
             config, fold.train_records, class_order, training=True,
             apply_training_time_augmentation=apply_training_time_augmentation,
-            class_weights=fold.class_weights,
+            class_weights=fold_train_weights,
         )
         val_ds = build_dataset(
             config, fold.val_records, class_order, training=False,
             apply_training_time_augmentation=False,
             class_weights=None,  # never weight validation -- see image_loader.py's refusal check
         )
-
 
         backbone_spec = get_backbone(config.backbone)
 
@@ -529,6 +534,10 @@ def _write_fold_artifacts(
         "stage2_epochs": config.stage2_epochs,
         "unfrozen_layers": config.unfrozen_layers,
         "dropout_rate": config.dropout_rate,
+        "loss_name": getattr(config, "loss_name", "categorical_crossentropy"),
+        "focal_gamma": getattr(config, "focal_gamma", 2.0),
+        "use_class_weights": getattr(config, "use_class_weights", True),
+        "adam_clipnorm": getattr(config, "adam_clipnorm", 1.0),
         "representation_id": representation_id(config),
         "run_id": getattr(config, "run_id", None) or os.environ.get("AEFCRC_RUN_ID", None),
         "dataset_freeze_hash": dataset_freeze_hash,

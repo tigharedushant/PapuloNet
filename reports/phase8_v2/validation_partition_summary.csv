@@ -1,0 +1,5 @@
+class,val_calib_count,val_conf_count,total_count,class_ratio_percent
+Psoriasis,68,69,137,55.69
+Lichen_Planus,27,28,55,22.36
+Pityriasis_Rosea,18,17,35,14.23
+Seborrheic_Dermatitis,10,9,19,7.72

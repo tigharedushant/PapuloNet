@@ -223,7 +223,7 @@ class PSDConfig:
     ga_generations: int = 30
     ga_mutation_rate: float = 0.05
     ga_crossover_rate: float = 0.7
-    ga_feature_count_penalty: float = 0.0005  # subtracted from fitness per selected feature, keeps GA from just selecting everything
+    ga_feature_count_penalty: float = 0.0  # Phase 6 V2 protocol: unpenalized (lambda = 0.0); optimizes inner-val Macro-F1 directly
     ga_nested_val_fraction: float = 0.2  # carved out of fold.train_records only, for GA fitness -- fold.val_records is never touched during evolution
 
     # ---- AEF-CRC Phase 6: Binary Dragonfly Algorithm (BDA) ----
@@ -234,8 +234,10 @@ class PSDConfig:
     bda_tau_max: float = 4.0
     bda_w_max: float = 0.9
     bda_w_min: float = 0.4
-    bda_feature_count_penalty: float = 0.0005  # identical to ga_feature_count_penalty for fair comparison
+    bda_feature_count_penalty: float = 0.0  # Phase 6 V2 protocol: unpenalized (lambda = 0.0); identical to ga_feature_count_penalty
     bda_nested_val_fraction: float = 0.2  # identical to ga_nested_val_fraction
+    phase6_v2_feature_count_penalty: float = 0.0  # explicit frozen V2 parameter
+    phase6_v2_fitness_objective: str = "inner_validation_macro_f1"
     aef_crc_phase6_reports_dir: Path = PROJECT_ROOT / "reports" / "phase6"
     aef_crc_phase6_artifacts_dir: Path = PROJECT_ROOT / "artifacts" / "phase6"
 
@@ -277,7 +279,51 @@ class PSDConfig:
     classifier_name: str = "random_forest"
     feature_selection_method: str = "bda"
 
-    # ---- AEF-CRC Phase 3: artifact/report locations ----
+    # ---- AEF-CRC Phase 3 V2: loss, optimizer, and directories ----
+    loss_name: str = "categorical_crossentropy"  # "categorical_crossentropy" | "categorical_focal_loss"
+    focal_gamma: float = 2.0
+    use_class_weights: bool = True
+    adam_clipnorm: float = 1.0
+    aef_crc_phase3_v2_artifacts_dir: Path = PROJECT_ROOT / "artifacts" / "phase3_v2"
+    aef_crc_phase3_v2_reports_dir: Path = PROJECT_ROOT / "reports" / "phase3_v2"
+    aef_crc_phase3_v2_logs_dir: Path = PROJECT_ROOT / "logs" / "phase3_v2"
+
+    # ---- AEF-CRC Phase 4 V2: artifact/report/log locations ----
+    aef_crc_phase4_v2_artifacts_dir: Path = PROJECT_ROOT / "artifacts" / "phase4_v2"
+    aef_crc_phase4_v2_reports_dir: Path = PROJECT_ROOT / "reports" / "phase4_v2"
+    aef_crc_phase4_v2_logs_dir: Path = PROJECT_ROOT / "logs" / "phase4_v2"
+
+    # ---- AEF-CRC Phase 5 V2: artifact/report/log locations ----
+    aef_crc_phase5_v2_artifacts_dir: Path = PROJECT_ROOT / "artifacts" / "phase5_v2"
+    aef_crc_phase5_v2_reports_dir: Path = PROJECT_ROOT / "reports" / "phase5_v2"
+    aef_crc_phase5_v2_logs_dir: Path = PROJECT_ROOT / "logs" / "phase5_v2"
+
+    # ---- AEF-CRC Phase 6 V2: artifact/report/log locations ----
+    aef_crc_phase6_v2_artifacts_dir: Path = PROJECT_ROOT / "artifacts" / "phase6_v2"
+    aef_crc_phase6_v2_reports_dir: Path = PROJECT_ROOT / "reports" / "phase6_v2"
+    aef_crc_phase6_v2_logs_dir: Path = PROJECT_ROOT / "logs" / "phase6_v2"
+
+    # ---- AEF-CRC Phase 6 V2-A7 (Exploratory): artifact/report/log locations ----
+    aef_crc_phase6_v2_a7_artifacts_dir: Path = PROJECT_ROOT / "artifacts" / "phase6_v2_a7"
+    aef_crc_phase6_v2_a7_reports_dir: Path = PROJECT_ROOT / "reports" / "phase6_v2_a7"
+    aef_crc_phase6_v2_a7_logs_dir: Path = PROJECT_ROOT / "logs" / "phase6_v2_a7"
+
+    # ---- AEF-CRC Phase 7 V2: artifact/report/log locations ----
+    aef_crc_phase7_v2_artifacts_dir: Path = PROJECT_ROOT / "artifacts" / "phase7_v2"
+    aef_crc_phase7_v2_reports_dir: Path = PROJECT_ROOT / "reports" / "phase7_v2"
+    aef_crc_phase7_v2_logs_dir: Path = PROJECT_ROOT / "logs" / "phase7_v2"
+
+    # ---- AEF-CRC Phase 8 V2: artifact/report/log locations ----
+    aef_crc_phase8_v2_artifacts_dir: Path = PROJECT_ROOT / "artifacts" / "phase8_v2"
+    aef_crc_phase8_v2_reports_dir: Path = PROJECT_ROOT / "reports" / "phase8_v2"
+    aef_crc_phase8_v2_logs_dir: Path = PROJECT_ROOT / "logs" / "phase8_v2"
+
+    # ---- AEF-CRC Phase 9 V2: artifact/report/log locations ----
+    aef_crc_phase9_v2_artifacts_dir: Path = PROJECT_ROOT / "artifacts" / "phase9_v2"
+    aef_crc_phase9_v2_reports_dir: Path = PROJECT_ROOT / "reports" / "phase9_v2"
+    aef_crc_phase9_v2_logs_dir: Path = PROJECT_ROOT / "logs" / "phase9_v2"
+
+    # ---- AEF-CRC Phase 3: artifact/report locations (V1 baseline, preserved) ----
     aef_crc_artifacts_dir: Path = PROJECT_ROOT / "artifacts" / "phase3"
     aef_crc_phase3_reports_dir: Path = PROJECT_ROOT / "reports" / "phase3"
     aef_crc_phase3_logs_dir: Path = PROJECT_ROOT / "logs" / "phase3"
@@ -292,12 +338,28 @@ class PSDConfig:
             self.aef_crc_output_dir, self.aef_crc_reports_dir,
             self.aef_crc_artifacts_dir, self.aef_crc_phase3_reports_dir,
             self.aef_crc_phase3_logs_dir,
+            self.aef_crc_phase3_v2_artifacts_dir, self.aef_crc_phase3_v2_reports_dir,
+            self.aef_crc_phase3_v2_logs_dir,
             self.aef_crc_phase4_artifacts_dir, self.aef_crc_phase4_reports_dir,
+            self.aef_crc_phase4_v2_artifacts_dir, self.aef_crc_phase4_v2_reports_dir,
+            self.aef_crc_phase4_v2_logs_dir,
             self.aef_crc_phase5_reports_dir,
+            self.aef_crc_phase5_v2_artifacts_dir, self.aef_crc_phase5_v2_reports_dir,
+            self.aef_crc_phase5_v2_logs_dir,
             self.aef_crc_phase6_reports_dir, self.aef_crc_phase6_artifacts_dir,
+            self.aef_crc_phase6_v2_artifacts_dir, self.aef_crc_phase6_v2_reports_dir,
+            self.aef_crc_phase6_v2_logs_dir,
+            self.aef_crc_phase6_v2_a7_artifacts_dir, self.aef_crc_phase6_v2_a7_reports_dir,
+            self.aef_crc_phase6_v2_a7_logs_dir,
             self.aef_crc_phase7_reports_dir, self.aef_crc_phase7_artifacts_dir,
+            self.aef_crc_phase7_v2_artifacts_dir, self.aef_crc_phase7_v2_reports_dir,
+            self.aef_crc_phase7_v2_logs_dir,
             self.aef_crc_phase8_reports_dir, self.aef_crc_phase8_artifacts_dir,
+            self.aef_crc_phase8_v2_artifacts_dir, self.aef_crc_phase8_v2_reports_dir,
+            self.aef_crc_phase8_v2_logs_dir,
             self.aef_crc_phase9_reports_dir, self.aef_crc_phase9_artifacts_dir,
+            self.aef_crc_phase9_v2_artifacts_dir, self.aef_crc_phase9_v2_reports_dir,
+            self.aef_crc_phase9_v2_logs_dir,
         ]
 
     def validate_split_ratios(self) -> None:

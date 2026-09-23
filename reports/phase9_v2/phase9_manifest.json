@@ -1,0 +1,77 @@
+{
+  "phase": "phase9_v2",
+  "run_id": "AEFCRC_P9_V2_20260921_150441_54fc3c7b",
+  "timestamp_utc": "2026-09-21T15:04:42.719835+00:00",
+  "status": "CONFORMAL_CALIBRATION_CERTIFIED",
+  "pipeline": {
+    "arm_id": "A7",
+    "classifier": "random_forest",
+    "feature_selection_method": "bda",
+    "representation_id": "efficientnet_b0_43d581b96f8ec368",
+    "source_experiment": "P3-V2-Focal"
+  },
+  "conformal_calibration": {
+    "alpha": 0.1,
+    "nominal_coverage": 0.9,
+    "cohort": "val_conf",
+    "n_samples": 123,
+    "primary_method": "pooled_marginal_split_conformal",
+    "marginal_q_hat": 0.7382427827337363,
+    "marginal_formula_k": 112,
+    "marginal_inclusion_threshold": 0.26175721726626366,
+    "mondrian_q_hat_by_class": {
+      "Psoriasis": 0.5641121313269555,
+      "Lichen_Planus": 0.838085434287251,
+      "Pityriasis_Rosea": 0.9809492733315391,
+      "Seborrheic_Dermatitis": 0.288239657087753
+    },
+    "per_class_n": {
+      "Psoriasis": 69,
+      "Lichen_Planus": 28,
+      "Pityriasis_Rosea": 17,
+      "Seborrheic_Dermatitis": 9
+    },
+    "small_sample_warnings": {
+      "Seborrheic_Dermatitis": "Class 'Seborrheic_Dermatitis' has only 9 calibration samples (recommended >= 15). Empirical quantile k=9 is coarse, causing higher finite-sample variance and potentially wide prediction sets."
+    }
+  },
+  "val_conf_evaluation": {
+    "marginal": {
+      "empirical_coverage": 0.9105691056910569,
+      "mean_set_size": 1.2601626016260163,
+      "median_set_size": 1.0,
+      "singleton_fraction": 0.7398373983739838,
+      "empty_set_fraction": 0.0,
+      "per_class_coverage": {
+        "Psoriasis": 0.9710144927536232,
+        "Lichen_Planus": 0.8214285714285714,
+        "Pityriasis_Rosea": 0.7647058823529411,
+        "Seborrheic_Dermatitis": 1.0
+      }
+    },
+    "mondrian": {
+      "empirical_coverage": 0.943089430894309,
+      "mean_set_size": 1.5528455284552845,
+      "median_set_size": 1.0,
+      "singleton_fraction": 0.5040650406504065,
+      "empty_set_fraction": 0.008130081300813009,
+      "per_class_coverage": {
+        "Psoriasis": 0.9130434782608695,
+        "Lichen_Planus": 0.9642857142857143,
+        "Pityriasis_Rosea": 1.0,
+        "Seborrheic_Dermatitis": 1.0
+      }
+    }
+  },
+  "provenance": {
+    "upstream_phase8_run_id": "AEFCRC_P8_V2_20260921_124809_c9bee427",
+    "upstream_phase7_run_id": "AEFCRC_P7_V2_20260921_074018_936e6e73",
+    "dataset_freeze_hash": "964d91f8178d5bb7123a7cc02388cd57912bba1e836b2a3ab70b9fa98441919f",
+    "fold_plan_hash": "3c54f09f834632f8f771b46d5a98fb773aa6ee78878b00a0c58806c575b8f7b9",
+    "locked_test_untouched": true,
+    "locked_test_records_count": 243
+  },
+  "artifacts": {
+    "final_pipeline_handoff_joblib": "/mnt/c/Users/ASUS/Downloads/PSD_HP_AEF_CRC_PopuloNet/PSD_HP/artifacts/phase9_v2/final_pipeline_handoff.joblib"
+  }
+}

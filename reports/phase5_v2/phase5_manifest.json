@@ -1,0 +1,137 @@
+{
+  "phase": "phase5_v2",
+  "run_id": "AEFCRC_RUN_20260920_032250_652829_26fa170064c24b1798c32abbe047f8bd",
+  "representation_id": "efficientnet_b0_43d581b96f8ec368",
+  "random_seed": 42,
+  "primary_classifier": {
+    "name": "random_forest",
+    "n_estimators": 300,
+    "criterion": "gini",
+    "min_samples_split": 2,
+    "min_samples_leaf": 1,
+    "max_features": "sqrt",
+    "bootstrap": true,
+    "sample_weight": "fold_local_balanced"
+  },
+  "comparator_classifier": {
+    "name": "logistic_regression",
+    "penalty": "l2",
+    "C": 1.0,
+    "solver": "lbfgs",
+    "max_iter": 1000,
+    "sample_weight": "fold_local_balanced"
+  },
+  "upstream_phase3_winner": {
+    "winner_experiment_id": "P3-V2-Focal",
+    "representation_id": "efficientnet_b0_43d581b96f8ec368",
+    "macro_f1_mean": 0.7545281680380581,
+    "macro_f1_std": 0.02417359787531274
+  },
+  "dataset_freeze_hash": "964d91f8178d5bb7123a7cc02388cd57912bba1e836b2a3ab70b9fa98441919f",
+  "fold_plan_hash": "3c54f09f834632f8f771b46d5a98fb773aa6ee78878b00a0c58806c575b8f7b9",
+  "selection_rule": "highest_mean_macro_f1_with_0.005_practical_equivalence_and_lowest_dimension_tiebreak",
+  "selected_fusion_arm": "EfficientNet+LBP",
+  "selected_fusion_arm_id": "A2",
+  "selected_fusion_representation": "efficientnet_lbp",
+  "selected_fusion_dimension": 1298,
+  "selected_fusion_branches": [
+    "deep",
+    "lbp"
+  ],
+  "selected_metrics": {
+    "macro_f1_mean": 0.7197661767197909,
+    "macro_f1_std": 0.022521472106473817,
+    "balanced_accuracy_mean": 0.7151082627961752,
+    "mcc_mean": 0.5970343427717342
+  },
+  "selection_metadata": {
+    "primary_metric": "macro_f1_mean",
+    "equivalence_margin": 0.005,
+    "max_macro_f1": 0.7239222483103136,
+    "candidates_considered": [
+      {
+        "arm_id": "A0",
+        "arm": "EfficientNet",
+        "dimension": 1280,
+        "macro_f1_mean": 0.7006745285157985,
+        "balanced_accuracy_mean": 0.6982179732129072
+      },
+      {
+        "arm_id": "A1",
+        "arm": "EfficientNet+GLCM",
+        "dimension": 1292,
+        "macro_f1_mean": 0.7058374683163634,
+        "balanced_accuracy_mean": 0.7010960085296439
+      },
+      {
+        "arm_id": "A2",
+        "arm": "EfficientNet+LBP",
+        "dimension": 1298,
+        "macro_f1_mean": 0.7197661767197909,
+        "balanced_accuracy_mean": 0.7151082627961752
+      },
+      {
+        "arm_id": "A3",
+        "arm": "EfficientNet+HOG-PCA",
+        "dimension": 1312,
+        "macro_f1_mean": 0.7110985780262298,
+        "balanced_accuracy_mean": 0.7080290868016306
+      },
+      {
+        "arm_id": "A4",
+        "arm": "EfficientNet+LAB",
+        "dimension": 1286,
+        "macro_f1_mean": 0.7108766824488095,
+        "balanced_accuracy_mean": 0.713039546868685
+      },
+      {
+        "arm_id": "A5",
+        "arm": "EfficientNet+GLCM+LBP",
+        "dimension": 1310,
+        "macro_f1_mean": 0.7042204786905089,
+        "balanced_accuracy_mean": 0.700889203966258
+      },
+      {
+        "arm_id": "A6",
+        "arm": "EfficientNet+GLCM+LBP+HOG-PCA+LAB",
+        "dimension": 1348,
+        "macro_f1_mean": 0.7115673249220278,
+        "balanced_accuracy_mean": 0.7062233892866564
+      },
+      {
+        "arm_id": "A7",
+        "arm": "EfficientNet+GLCM+LBP+LAB",
+        "dimension": 1316,
+        "macro_f1_mean": 0.7239222483103136,
+        "balanced_accuracy_mean": 0.724222618949453
+      }
+    ],
+    "candidates_within_practical_performance_margin": [
+      {
+        "arm_id": "A2",
+        "arm": "EfficientNet+LBP",
+        "dimension": 1298,
+        "macro_f1_mean": 0.7197661767197909,
+        "delta_from_max": 0.00415607159052267,
+        "balanced_accuracy_mean": 0.7151082627961752
+      },
+      {
+        "arm_id": "A7",
+        "arm": "EfficientNet+GLCM+LBP+LAB",
+        "dimension": 1316,
+        "macro_f1_mean": 0.7239222483103136,
+        "delta_from_max": 0.0,
+        "balanced_accuracy_mean": 0.724222618949453
+      }
+    ],
+    "selected_arm_id": "A2",
+    "selection_rationale": "Arm 'EfficientNet+LBP' (A2) selected: achieved Macro-F1=0.7198 (within 0.0050 of max 0.7239) and has lowest dimension (1298-D) among the 2 candidate(s) within the predefined practical-performance margin."
+  },
+  "timestamp": "2026-09-20T07:24:38.869819+00:00",
+  "reports_generated": [
+    "reports/phase5_v2/fusion_results.csv",
+    "reports/phase5_v2/fusion_results_comparator_lr.csv",
+    "reports/phase5_v2/fusion_mcnemar_holm.csv",
+    "reports/phase5_v2/phase5_manifest.json"
+  ]
+}

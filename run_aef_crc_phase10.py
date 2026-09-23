@@ -16,8 +16,9 @@ SCIENTIFIC CONTRACT & PRE-REGISTERED METHODOLOGY:
      * Operates on the production Random Forest classifier.
      * Target: RAW uncalibrated prediction probabilities (model_output="raw").
      * Uses feature_perturbation="tree_path_dependent" on CPU.
-     * Operates on the 194-D BDA-selected feature vector of the 1316-D A7 fused representation
+     * Operates on the BDA-selected feature vector of the 1316-D A7 fused representation
        (EfficientNet 1280, GLCM 12, LBP 18, Color LAB 6; NO HOG).
+       V2 pipeline: 642 BDA-selected features (not 194 from V1).
      * Quantifies individual feature attributions and aggregate branch importance.
    - Explicit Boundary:
      Neither Grad-CAM nor TreeSHAP explains the Platt probability calibrator
@@ -30,7 +31,7 @@ SCIENTIFIC CONTRACT & PRE-REGISTERED METHODOLOGY:
      remains completely untouched and unaccessed.
 
 3. Artifacts Consumed:
-   - artifacts/phase9/final_pipeline_handoff.joblib
+   - artifacts/phase9_v2/final_pipeline_handoff.joblib
    - artifacts/phase3/P3-BASE/fold_00/best_model.keras
 """
 
@@ -48,7 +49,7 @@ import numpy as np
 from PIL import Image
 
 from config.config import PSDConfig, get_config
-from run_aef_crc_phase6 import align_phase3_winner_config
+from run_aef_crc_phase9_v2 import configure_phase9_v2
 from modules.aef_input_validator import ImageRecord
 from modules.calibration_handoff import (
     FinalPipelineHandoff,
@@ -88,7 +89,7 @@ def validate_phase10_preflight(
         classifier=handoff.final_classifier,
         selected_feature_mask=handoff.selected_feature_mask,
         expected_full_dim=A7_FULL_DIM,
-        expected_k_features=194,
+        expected_k_features=int(handoff.selected_feature_mask.sum()),
         branch_dims=handoff.branch_dims,
     )
 
@@ -488,14 +489,14 @@ def main() -> int:
     )
 
     args = parser.parse_args()
-    config, _ = align_phase3_winner_config(get_config())
+    config = configure_phase9_v2(get_config())
     logger = get_module_logger("phase10_runner", config.logs_dir, config.log_level)
 
     print("==================================================")
     print("      AEF-CRC PHASE 10: EXPLAINABLE AI (XAI)      ")
     print("==================================================\n")
 
-    handoff_path = config.project_root / "artifacts" / "phase9" / "final_pipeline_handoff.joblib"
+    handoff_path = config.project_root / "artifacts" / "phase9_v2" / "final_pipeline_handoff.joblib"
     if not handoff_path.exists():
         print(f"[PHASE 10 BLOCKER] Required artifact missing: {handoff_path}")
         print("Run Phase 9 conformal calibration first to freeze pipeline artifacts.")

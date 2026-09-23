@@ -1,15 +1,15 @@
 # AEF-CRC Phase 10: Explainable AI (XAI) & Interpretability Report
 
 ## Executive Summary
-- **Timestamp**: 2026-09-18T16:43:38.841861+00:00
-- **Representation ID**: `efficientnet_b0_6760c4f151acc2d2`
+- **Timestamp**: 2026-09-22T08:53:39.079663+00:00
+- **Representation ID**: `efficientnet_b0_43d581b96f8ec368`
 - **Fusion Layout**: `A7` (Full dimension: 1316-D)
-- **Production Feature Selection**: BDA active features = 194 / 1316
-- **Production Classifier**: `random_forest` (n_features_in = 194)
-- **Probability Calibration**: `Platt` scaling
-- **Conformal Coverage (Nominal)**: 90.0% (Marginal quantile $\hat{q} = 0.7822$)
+- **Production Feature Selection**: BDA active features = 642 / 1316
+- **Production Classifier**: `random_forest` (n_features_in = 642)
+- **Probability Calibration**: `Temperature_scaling` scaling
+- **Conformal Coverage (Nominal)**: 90.0% (Marginal quantile $\hat{q} = 0.7382$)
 - **Evaluated Cohort**: 8 representative validation samples (Holdout val cohort; locked test set strictly isolated).
-- **Validation Subset Accuracy**: 2/8 (25.0%)
+- **Validation Subset Accuracy**: 3/8 (37.5%)
 
 ---
 
@@ -28,14 +28,14 @@
 
 | Sample ID | True Class | Predicted Class | Calib Conf | Conformal Set | Review Status | Top SHAP Branch | Overlay |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `PSD_00000917` | Psoriasis | Psoriasis | 48.5% | `Psoriasis;Pityriasis_Rosea` | `SPECIALIST_REVIEW_REQUIRED` | deep (95.9%) | [View](gradcam/PSD_00000917/gradcam_overlay.png) |
-| `PSD_00001647` | Psoriasis | Psoriasis | 47.4% | `Psoriasis;Pityriasis_Rosea` | `SPECIALIST_REVIEW_REQUIRED` | deep (97.6%) | [View](gradcam/PSD_00001647/gradcam_overlay.png) |
-| `PSD_00000639` | Lichen_Planus | Psoriasis | 57.5% | `Psoriasis;Pityriasis_Rosea` | `SPECIALIST_REVIEW_REQUIRED` | deep (97.7%) | [View](gradcam/PSD_00000639/gradcam_overlay.png) |
-| `PSD_00003153` | Lichen_Planus | Psoriasis | 43.2% | `Psoriasis;Lichen_Planus` | `SPECIALIST_REVIEW_REQUIRED` | deep (98.7%) | [View](gradcam/PSD_00003153/gradcam_overlay.png) |
-| `PSD_00000735` | Pityriasis_Rosea | Psoriasis | 49.5% | `Psoriasis;Pityriasis_Rosea` | `SPECIALIST_REVIEW_REQUIRED` | deep (98.7%) | [View](gradcam/PSD_00000735/gradcam_overlay.png) |
-| `PSD_00003209` | Pityriasis_Rosea | Lichen_Planus | 43.7% | `Psoriasis;Lichen_Planus` | `SPECIALIST_REVIEW_REQUIRED` | deep (96.6%) | [View](gradcam/PSD_00003209/gradcam_overlay.png) |
-| `PSD_00001693` | Seborrheic_Dermatitis | Psoriasis | 41.6% | `Psoriasis;Lichen_Planus` | `SPECIALIST_REVIEW_REQUIRED` | deep (95.7%) | [View](gradcam/PSD_00001693/gradcam_overlay.png) |
-| `PSD_00001760` | Seborrheic_Dermatitis | Psoriasis | 47.2% | `Psoriasis` | `STANDARD_OUTPUT` | deep (96.5%) | [View](gradcam/PSD_00001760/gradcam_overlay.png) |
+| `PSD_00000917` | Psoriasis | Pityriasis_Rosea | 71.7% | `Psoriasis;Pityriasis_Rosea` | `SPECIALIST_REVIEW_REQUIRED` | deep (96.7%) | [View](gradcam/PSD_00000917/gradcam_overlay.png) |
+| `PSD_00001647` | Psoriasis | Pityriasis_Rosea | 91.8% | `Pityriasis_Rosea` | `STANDARD_OUTPUT` | deep (94.0%) | [View](gradcam/PSD_00001647/gradcam_overlay.png) |
+| `PSD_00000639` | Lichen_Planus | Pityriasis_Rosea | 61.2% | `Psoriasis;Pityriasis_Rosea` | `SPECIALIST_REVIEW_REQUIRED` | deep (94.0%) | [View](gradcam/PSD_00000639/gradcam_overlay.png) |
+| `PSD_00003153` | Lichen_Planus | Lichen_Planus | 75.3% | `Lichen_Planus` | `STANDARD_OUTPUT` | deep (94.7%) | [View](gradcam/PSD_00003153/gradcam_overlay.png) |
+| `PSD_00000735` | Pityriasis_Rosea | Pityriasis_Rosea | 46.3% | `Psoriasis;Pityriasis_Rosea` | `SPECIALIST_REVIEW_REQUIRED` | deep (95.9%) | [View](gradcam/PSD_00000735/gradcam_overlay.png) |
+| `PSD_00003209` | Pityriasis_Rosea | Lichen_Planus | 99.4% | `Lichen_Planus` | `STANDARD_OUTPUT` | deep (92.9%) | [View](gradcam/PSD_00003209/gradcam_overlay.png) |
+| `PSD_00001693` | Seborrheic_Dermatitis | Lichen_Planus | 49.7% | `Lichen_Planus` | `STANDARD_OUTPUT` | deep (94.9%) | [View](gradcam/PSD_00001693/gradcam_overlay.png) |
+| `PSD_00001760` | Seborrheic_Dermatitis | Seborrheic_Dermatitis | 83.9% | `Seborrheic_Dermatitis` | `STANDARD_OUTPUT` | deep (92.6%) | [View](gradcam/PSD_00001760/gradcam_overlay.png) |
 
 ---
 

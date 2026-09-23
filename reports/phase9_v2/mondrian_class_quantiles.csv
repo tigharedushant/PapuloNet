@@ -1,0 +1,5 @@
+class_name,n_calib_support,q_hat_c,inclusion_threshold,empirical_coverage,formula_k,small_sample_warning
+Psoriasis,69,0.564112,0.435888,0.913043,63,None
+Lichen_Planus,28,0.838085,0.161915,0.964286,27,None
+Pityriasis_Rosea,17,0.980949,0.019051,1.000000,17,None
+Seborrheic_Dermatitis,9,0.288240,0.711760,1.000000,9,"Class 'Seborrheic_Dermatitis' has only 9 calibration samples (recommended >= 15). Empirical quantile k=9 is coarse, causing higher finite-sample variance and potentially wide prediction sets."

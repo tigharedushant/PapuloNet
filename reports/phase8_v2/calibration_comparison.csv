@@ -1,0 +1,7 @@
+partition,method,n_samples,nll,brier,ece,macro_f1,changed_predictions,temperature
+val_calib,uncalibrated,123,0.767778,0.424852,0.255327,0.731985,0,1.0
+val_calib,temperature_scaling,123,0.544061,0.329429,0.073570,0.731985,0,0.325677
+val_conf,uncalibrated,123,0.738315,0.402770,0.284878,0.800086,0,1.0
+val_conf,temperature_scaling,123,0.496732,0.291615,0.087721,0.800086,0,0.325677
+val_pooled,uncalibrated,246,0.753046,0.413811,0.270103,0.764324,0,1.0
+val_pooled,temperature_scaling,246,0.520396,0.310522,0.052752,0.764324,0,0.325677

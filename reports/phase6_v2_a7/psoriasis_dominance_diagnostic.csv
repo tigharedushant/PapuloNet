@@ -1,0 +1,4 @@
+arm,total_samples,Psoriasis_true_count,Psoriasis_true_pct,Psoriasis_pred_count,Psoriasis_pred_pct,Psoriasis_pred_ratio,Lichen_Planus_true_count,Lichen_Planus_true_pct,Lichen_Planus_pred_count,Lichen_Planus_pred_pct,Lichen_Planus_pred_ratio,Pityriasis_Rosea_true_count,Pityriasis_Rosea_true_pct,Pityriasis_Rosea_pred_count,Pityriasis_Rosea_pred_pct,Pityriasis_Rosea_pred_ratio,Seborrheic_Dermatitis_true_count,Seborrheic_Dermatitis_true_pct,Seborrheic_Dermatitis_pred_count,Seborrheic_Dermatitis_pred_pct,Seborrheic_Dermatitis_pred_ratio
+full_a7,1146,638,55.67,678,59.16,1.0627,258,22.51,202,17.63,0.7829,162,14.14,173,15.1,1.0679,88,7.68,93,8.12,1.0568
+bda_a7,1146,638,55.67,687,59.95,1.0768,258,22.51,203,17.71,0.7868,162,14.14,166,14.49,1.0247,88,7.68,90,7.85,1.0227
+ga_a7,1146,638,55.67,675,58.9,1.058,258,22.51,206,17.98,0.7984,162,14.14,171,14.92,1.0556,88,7.68,94,8.2,1.0682

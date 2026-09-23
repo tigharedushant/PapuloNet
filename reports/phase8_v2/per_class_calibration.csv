@@ -1,0 +1,5 @@
+class,val_calib_uncal_ece,val_calib_cal_ece,val_conf_uncal_ece,val_conf_cal_ece
+Psoriasis,0.191189,0.094004,0.215741,0.074051
+Lichen_Planus,0.115285,0.064478,0.139431,0.057781
+Pityriasis_Rosea,0.122710,0.065393,0.103984,0.067569
+Seborrheic_Dermatitis,0.067993,0.032551,0.095230,0.029743

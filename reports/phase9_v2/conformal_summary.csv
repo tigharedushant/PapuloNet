@@ -1,0 +1,3 @@
+method,alpha,nominal_coverage,n_samples,q_hat_or_mean,inclusion_threshold,empirical_coverage,mean_set_size,median_set_size,singleton_fraction,empty_set_fraction
+marginal_split_conformal,0.1000,0.9000,123,0.738243,0.261757,0.910569,1.2602,1.0,0.739837,0.000000
+mondrian_class_conditional,0.1000,0.9000,123,0.667847,per_class,0.943089,1.5528,1.0,0.504065,0.008130

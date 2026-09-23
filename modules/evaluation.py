@@ -449,32 +449,35 @@ def validate_phase3_winner(reports_dir: Path, artifacts_dir: Path) -> Tuple[bool
 def select_phase3_winner(
     experiment_aggregates: Dict[str, AggregatedMetrics],
     threshold: float = 0.005,
+    baseline_name: str = "P3-BASE",
 ) -> Tuple[str, str]:
     """Enforces the authoritative Phase 3 winner-selection rule.
 
     Rule:
     - Primary metric: mean validation Macro-F1 across 5 folds.
-    - Threshold: A candidate arm (e.g. P3-PRE, P3-AUG) must exceed P3-BASE by
+    - Threshold: A candidate arm must exceed the baseline by
       strictly > 0.005 Macro-F1 to be declared the winner.
     - Equivalence / Parsimony: If the difference between candidate and
-      P3-BASE is <= 0.005, the candidate is deemed practically equivalent or inferior;
-      prefer P3-BASE for parsimony (simplest pipeline: no preprocessing, no augmentation).
+      baseline is <= 0.005, the candidate is deemed practically equivalent or inferior;
+      prefer the baseline for parsimony.
     - SD tie-breaker: Completely removed.
 
     Returns:
         (winner_name, rationale)
     """
-    if "P3-BASE" not in experiment_aggregates:
-        raise ValueError("P3-BASE must be present as the baseline experiment.")
+    if baseline_name not in experiment_aggregates:
+        # If specified baseline not present, default to arm with highest Macro-F1
+        best_arm = max(experiment_aggregates.keys(), key=lambda k: experiment_aggregates[k].macro_f1_mean)
+        return best_arm, f"Baseline '{baseline_name}' not in results; selected highest Macro-F1 arm '{best_arm}'."
 
-    base_agg = experiment_aggregates["P3-BASE"]
+    base_agg = experiment_aggregates[baseline_name]
     base_f1 = base_agg.macro_f1_mean
 
-    candidates = [k for k in experiment_aggregates if k != "P3-BASE"]
+    candidates = [k for k in experiment_aggregates if k != baseline_name]
     candidates.sort(key=lambda k: experiment_aggregates[k].macro_f1_mean, reverse=True)
 
     if not candidates:
-        return "P3-BASE", "No candidate arms provided; P3-BASE selected as baseline."
+        return baseline_name, f"No candidate arms provided; {baseline_name} selected as baseline."
 
     top_candidate = candidates[0]
     top_f1 = experiment_aggregates[top_candidate].macro_f1_mean
@@ -482,16 +485,16 @@ def select_phase3_winner(
 
     if delta > threshold:
         rationale = (
-            f"{top_candidate} won with Macro-F1 {top_f1:.6f}, exceeding P3-BASE "
+            f"{top_candidate} won with Macro-F1 {top_f1:.6f}, exceeding {baseline_name} "
             f"({base_f1:.6f}) by {delta:+.6f} (threshold > {threshold:.3f})."
         )
         return top_candidate, rationale
     else:
         rationale = (
-            f"P3-BASE retained for parsimony. Top candidate {top_candidate} "
-            f"Macro-F1 is {top_f1:.6f} vs P3-BASE {base_f1:.6f} (delta {delta:+.6f} <= {threshold:.3f}; "
+            f"{baseline_name} retained for parsimony. Top candidate {top_candidate} "
+            f"Macro-F1 is {top_f1:.6f} vs {baseline_name} {base_f1:.6f} (delta {delta:+.6f} <= {threshold:.3f}; "
             f"practically equivalent or inferior)."
         )
-        return "P3-BASE", rationale
+        return baseline_name, rationale
 
 

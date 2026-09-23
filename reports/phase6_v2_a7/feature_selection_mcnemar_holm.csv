@@ -1,0 +1,4 @@
+arm_a,arm_b,n01,n10,p_value,p_value_holm,status
+full_a7,bda_a7,41,45,0.746318,0.746318,Not Significant
+full_a7,ga_a7,36,55,0.059172,0.177516,Not Significant
+bda_a7,ga_a7,43,58,0.163604,0.327208,Not Significant

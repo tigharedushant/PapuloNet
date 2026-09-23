@@ -101,6 +101,15 @@ def representation_id(config: PSDConfig) -> str:
     collide -- see module docstring for the specific gap this closed."""
     canonical = {name: getattr(config, name) for name in _REPRESENTATION_FIELDS}
     canonical["pretrained_source"] = _PRETRAINED_SOURCE
+    # V2 Phase 3 loss and optimizer attributes
+    if hasattr(config, "loss_name"):
+        canonical["loss_name"] = getattr(config, "loss_name")
+    if hasattr(config, "focal_gamma"):
+        canonical["focal_gamma"] = getattr(config, "focal_gamma")
+    if hasattr(config, "use_class_weights"):
+        canonical["use_class_weights"] = getattr(config, "use_class_weights")
+    if hasattr(config, "adam_clipnorm"):
+        canonical["adam_clipnorm"] = getattr(config, "adam_clipnorm")
     encoded = json.dumps(canonical, sort_keys=True, default=str).encode("utf-8")
     digest = hashlib.sha256(encoded).hexdigest()[:16]
     return f"{config.backbone}_{digest}"

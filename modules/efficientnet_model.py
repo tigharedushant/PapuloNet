@@ -58,14 +58,23 @@ def build_stage1_model(config: PSDConfig, num_classes: int):
     outputs = layers.Dense(num_classes, activation="softmax", dtype="float32")(x)
     model = models.Model(inputs, outputs, name="efficientnet_b0_stage1")
 
+    clipnorm = getattr(config, "adam_clipnorm", 1.0)
+    optimizer = (
+        tf.keras.optimizers.Adam(learning_rate=config.stage1_learning_rate, clipnorm=clipnorm)
+        if clipnorm is not None and clipnorm > 0
+        else tf.keras.optimizers.Adam(learning_rate=config.stage1_learning_rate)
+    )
+
+    loss_obj = getattr(config, "loss_function", None)
+    if loss_obj is None:
+        loss_name = getattr(config, "loss_name", "categorical_crossentropy")
+        focal_gamma = getattr(config, "focal_gamma", 2.0)
+        from modules.losses import get_loss
+        loss_obj = get_loss(loss_name, gamma=focal_gamma)
+
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=config.stage1_learning_rate),
-        loss="categorical_crossentropy",
-        # Metrics deliberately minimal here -- the real evaluation (Macro-F1,
-        # MCC, per-class breakdown) happens in modules/evaluation.py against
-        # held-out predictions, not via Keras's built-in per-batch metrics,
-        # which can't correctly compute macro-averaged metrics across
-        # imbalanced classes the way sklearn does.
+        optimizer=optimizer,
+        loss=loss_obj,
         metrics=["accuracy"],
     )
     return model, backbone
@@ -88,9 +97,23 @@ def unfreeze_for_stage2(model, backbone, config: PSDConfig):
         if isinstance(layer, tf.keras.layers.BatchNormalization):
             layer.trainable = False
 
+    clipnorm = getattr(config, "adam_clipnorm", 1.0)
+    optimizer = (
+        tf.keras.optimizers.Adam(learning_rate=config.stage2_learning_rate, clipnorm=clipnorm)
+        if clipnorm is not None and clipnorm > 0
+        else tf.keras.optimizers.Adam(learning_rate=config.stage2_learning_rate)
+    )
+
+    loss_obj = getattr(config, "loss_function", None)
+    if loss_obj is None:
+        loss_name = getattr(config, "loss_name", "categorical_crossentropy")
+        focal_gamma = getattr(config, "focal_gamma", 2.0)
+        from modules.losses import get_loss
+        loss_obj = get_loss(loss_name, gamma=focal_gamma)
+
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=config.stage2_learning_rate),
-        loss="categorical_crossentropy",
+        optimizer=optimizer,
+        loss=loss_obj,
         metrics=["accuracy"],
     )
     return model
@@ -221,11 +244,25 @@ def extract_deep_features(config: PSDConfig, backbone, records, experiment_name:
     return out_dir
 
 
+def _resolve_deep_feature_root(config: PSDConfig, experiment_name: str) -> Path:
+    """Resolves the root directory containing deep feature caches for experiment_name.
+    If the experiment is a V2 experiment (e.g. 'P3-V2-*') or exists under
+    config.aef_crc_phase3_v2_artifacts_dir, use the V2 artifacts directory;
+    otherwise fall back to config.aef_crc_artifacts_dir."""
+    v2_dir = getattr(config, "aef_crc_phase3_v2_artifacts_dir", None)
+    if v2_dir is not None:
+        v2_candidate = v2_dir / "deep_features" / experiment_name
+        if v2_candidate.exists() or experiment_name.startswith("P3-V2-"):
+            return v2_dir
+    return config.aef_crc_artifacts_dir
+
+
 def load_deep_feature(config: PSDConfig, experiment_name: str, fold_index: int, split_name: str, psd_id: str):
     """Reads one cached deep feature vector -- the read-side counterpart
     to extract_deep_features(), for Phase 5's fusion code to call
     without needing to know the cache directory structure directly."""
-    path = (config.aef_crc_artifacts_dir / "deep_features" / experiment_name /
+    root_dir = _resolve_deep_feature_root(config, experiment_name)
+    path = (root_dir / "deep_features" / experiment_name /
             f"fold_{fold_index:02d}" / split_name / f"{psd_id}.npy")
     if not path.exists():
         raise FileNotFoundError(
@@ -244,7 +281,8 @@ def load_deep_feature_manifest(config: PSDConfig, experiment_name: str, fold_ind
     an absent manifest means this cache predates the metadata contract
     or was never actually produced by extract_deep_features()."""
     import json
-    path = (config.aef_crc_artifacts_dir / "deep_features" / experiment_name /
+    root_dir = _resolve_deep_feature_root(config, experiment_name)
+    path = (root_dir / "deep_features" / experiment_name /
             f"fold_{fold_index:02d}" / split_name / "manifest.json")
     if not path.exists():
         raise FileNotFoundError(

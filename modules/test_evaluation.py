@@ -23,6 +23,8 @@ from sklearn.metrics import (
     balanced_accuracy_score,
     confusion_matrix,
     f1_score,
+    log_loss,
+    matthews_corrcoef,
     precision_recall_fscore_support,
 )
 
@@ -117,8 +119,16 @@ def evaluate_locked_outer_test(
         raise LockedOuterTestGuardError("Missing production Random Forest classifier in artifact.")
     if pipeline_artifact.selected_feature_mask is None:
         raise LockedOuterTestGuardError("Missing production BDA mask in artifact.")
-    if pipeline_artifact.platt_models is None:
-        raise LockedOuterTestGuardError("Missing Platt calibration models in artifact.")
+    # V2 uses temperature_scaling (temperature_scaler); V1 uses platt_models or isotonic_models.
+    # Require at least one valid calibration artifact to be present.
+    has_temperature_scaler = getattr(pipeline_artifact, "temperature_scaler", None) is not None
+    has_platt = getattr(pipeline_artifact, "platt_models", None) is not None
+    has_isotonic = getattr(pipeline_artifact, "isotonic_models", None) is not None
+    if not (has_temperature_scaler or has_platt or has_isotonic):
+        raise LockedOuterTestGuardError(
+            "Missing calibration artifact in pipeline handoff. "
+            "Expected one of: temperature_scaler (V2), platt_models, or isotonic_models."
+        )
     if pipeline_artifact.marginal_q_hat is None:
         raise LockedOuterTestGuardError("Missing conformal threshold (marginal_q_hat) in artifact.")
 
@@ -144,7 +154,7 @@ def evaluate_locked_outer_test(
     conformal_sets_list: List[List[str]] = []
 
     for record in test_records:
-        true_label = record.label
+        true_label = getattr(record, "mapped_class", getattr(record, "label", None))
         if true_label not in class_to_idx:
             raise ValueError(f"Unknown test label '{true_label}' not in class list {classes}")
         y_true_indices.append(class_to_idx[true_label])
@@ -158,7 +168,7 @@ def evaluate_locked_outer_test(
 
         raw_probs_list.append(raw_row)
         calib_probs_list.append(calib_row)
-        conformal_sets_list.append(result.marginal_prediction_set)
+        conformal_sets_list.append(getattr(result, "conformal_prediction_set", getattr(result, "marginal_prediction_set", [])))
 
     y_true = np.array(y_true_indices)
     y_pred = np.array(y_pred_indices)
@@ -170,7 +180,9 @@ def evaluate_locked_outer_test(
     # -------------------------------------------------------------------------
     acc = float(accuracy_score(y_true, y_pred))
     macro_f1 = float(f1_score(y_true, y_pred, average="macro"))
+    weighted_f1 = float(f1_score(y_true, y_pred, average="weighted"))
     bal_acc = float(balanced_accuracy_score(y_true, y_pred))
+    mcc = float(matthews_corrcoef(y_true, y_pred))
     cm = confusion_matrix(y_true, y_pred).tolist()
 
     prec, rec, f1, supp = precision_recall_fscore_support(y_true, y_pred, average=None)
@@ -183,12 +195,18 @@ def evaluate_locked_outer_test(
             "support": int(supp[c_idx]),
         }
 
+    # Prediction distribution: how many samples were predicted for each class
+    pred_distribution = {c_name: int(np.sum(y_pred == c_idx)) for c_idx, c_name in enumerate(classes)}
+
     classification_metrics = {
         "macro_f1": macro_f1,
+        "weighted_f1": weighted_f1,
         "accuracy": acc,
         "balanced_accuracy": bal_acc,
+        "mcc": mcc,
         "confusion_matrix": cm,
         "per_class": per_class_metrics,
+        "prediction_distribution": pred_distribution,
     }
 
     # -------------------------------------------------------------------------
@@ -207,17 +225,22 @@ def evaluate_locked_outer_test(
     calib_ece = float(compute_ece(y_true, calib_probs, n_bins=10))
     raw_brier = float(multiclass_brier_score(y_true_onehot, raw_probs))
     calib_brier = float(multiclass_brier_score(y_true_onehot, calib_probs))
+    # NLL: negative log-likelihood on calibrated probabilities (lower is better)
+    calib_nll = float(log_loss(y_true, calib_probs))
 
     rel_diagram_raw = compute_reliability_diagram_bins(raw_conf, is_correct, n_bins=10)
     rel_diagram_calib = compute_reliability_diagram_bins(calib_conf, is_correct, n_bins=10)
 
     calibration_metrics = {
         "raw_ece": raw_ece,
-        "platt_calibrated_ece": calib_ece,
+        "calibrated_ece": calib_ece,
+        "platt_calibrated_ece": calib_ece,  # backward compat alias
         "ece_improvement": float(raw_ece - calib_ece),
         "raw_multiclass_brier": raw_brier,
-        "platt_calibrated_brier": calib_brier,
+        "calibrated_brier": calib_brier,
+        "platt_calibrated_brier": calib_brier,  # backward compat alias
         "brier_improvement": float(raw_brier - calib_brier),
+        "calibrated_nll": calib_nll,
         "reliability_diagram_raw": rel_diagram_raw,
         "reliability_diagram_calibrated": rel_diagram_calib,
     }
@@ -227,7 +250,7 @@ def evaluate_locked_outer_test(
     # -------------------------------------------------------------------------
     # Coverage: indicator whether true class label is in prediction set
     covered_indicators = [
-        test_records[i].label in conformal_sets_list[i] for i in range(n_test)
+        getattr(test_records[i], "mapped_class", getattr(test_records[i], "label", None)) in conformal_sets_list[i] for i in range(n_test)
     ]
     empirical_coverage = float(np.mean(covered_indicators))
     set_sizes = [len(s) for s in conformal_sets_list]

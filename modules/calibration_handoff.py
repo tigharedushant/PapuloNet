@@ -68,6 +68,7 @@ class CalibrationHandoff:
 
     # --- Provenance & Freeze tracking ---
     run_id: str = ""
+    upstream_phase6_run_id: Optional[str] = None
     dataset_freeze_hash: Optional[str] = None
     fold_plan_hash: Optional[str] = None
 
@@ -235,7 +236,17 @@ def validate_pipeline_handoff_provenance(
             f"{handoff.random_seed} != expected {config.random_seed}."
         )
     if expected_run_id is None:
-        expected_run_id = get_active_run_id(config)
+        artifact_run_id = getattr(handoff, "run_id", None) or ""
+        # V2 phase handoffs carry their own phase-scoped run IDs (e.g. AEFCRC_P9_V2_...).
+        # The Phase 3 active run ID (AEFCRC_RUN_...) is inapplicable to V2 pipelines.
+        # Only fall back to get_active_run_id for V1 handoffs whose run_id matches
+        # the AEFCRC_RUN_* pattern (i.e. set by Phase 3 winner.json).
+        if artifact_run_id.startswith("AEFCRC_P"):
+            # V2-style phase-scoped run ID: skip Phase 3 run ID comparison entirely.
+            # The representation_id and random_seed checks above are the provenance anchors.
+            expected_run_id = None
+        else:
+            expected_run_id = get_active_run_id(config)
     if expected_run_id:
         artifact_run_id = getattr(handoff, "run_id", None)
         if artifact_run_id != expected_run_id:
@@ -272,6 +283,8 @@ class ConformalHandoff:
     calibration_method_reason: str = "Frozen protocol: Sigmoid/Platt scaling is the pre-registered primary method"
     platt_models: Optional[Dict[str, Any]] = None     # fitted LogisticRegression per class
     isotonic_models: Optional[Dict[str, Any]] = None  # fitted IsotonicRegression per class (comparator)
+    temperature_scaler: Optional[Any] = None          # fitted MulticlassTemperatureScaler (Phase 8 V2)
+    temperature: Optional[float] = None               # optimal scalar T (Phase 8 V2)
 
     # --- The LOCKED calibration set: calibrated probabilities + labels ---
     calibration_psd_ids: List[str] = field(default_factory=list)
@@ -317,10 +330,14 @@ class ConformalArtifact:
     marginal_q_hat: float
     mondrian_q_hat: Dict[str, float]
     run_id: str = ""
+    upstream_phase8_run_id: Optional[str] = None
+    upstream_phase7_run_id: Optional[str] = None
     dataset_freeze_hash: Optional[str] = None
     fold_plan_hash: Optional[str] = None
     platt_models: Optional[Dict[str, Any]] = None
     isotonic_models: Optional[Dict[str, Any]] = None
+    temperature_scaler: Optional[Any] = None
+    temperature: Optional[float] = None
     alpha: float = 0.10
     n_conf_samples: int = 123
     per_class_conf_counts: Dict[str, int] = field(default_factory=dict)

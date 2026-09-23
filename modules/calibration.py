@@ -215,6 +215,142 @@ def apply_isotonic_scaling(
 
 
 # =============================================================================
+# Primary V2 Calibration: Multiclass Temperature Scaling (Guo et al., 2017)
+# =============================================================================
+
+@dataclass
+class MulticlassTemperatureScaler:
+    """Multiclass Temperature Scaling for probability calibration (Guo et al., 2017).
+
+    Transforms raw predicted probabilities P in Delta^{K-1} into calibrated probabilities P_hat:
+      1. Pseudo-logits: z = log(clip(P, eps, 1 - eps))
+      2. Temperature scaling: z_scaled = z / T  (for scalar T > 0)
+      3. Softmax: P_hat = softmax(z_scaled)
+
+    Mathematical Invariants:
+      - Strictly monotonic mapping: for any positive scalar T > 0,
+        argmax_k P_hat_{i, k} == argmax_k P_{i, k} for all i.
+      - Zero changed class predictions (strictly 0).
+      - Multiclass negative log likelihood (NLL) optimization without class weights.
+      - Calibration is probability post-processing, NOT classifier retraining.
+      - Preserves discrete metrics (Macro-F1, Balanced Accuracy, Accuracy, MCC, Confusion Matrix).
+    """
+    temperature: float = 1.0
+    eps: float = 1e-12
+    bounds: Tuple[float, float] = (0.05, 20.0)
+    nll_before_: Optional[float] = None
+    nll_after_: Optional[float] = None
+    fit_status_: str = "unfit"
+
+    @property
+    def temperature_(self) -> float:
+        return self.temperature
+
+    def fit(
+        self,
+        probs: np.ndarray,
+        true_indices: np.ndarray,
+    ) -> "MulticlassTemperatureScaler":
+        """Fits optimal scalar temperature T > 0 by minimizing multiclass negative log likelihood (NLL).
+
+        Args:
+            probs: Raw predicted probability matrix of shape (N, K).
+            true_indices: 1D array of integer class labels in {0, ..., K-1} of length N.
+        """
+        from scipy.optimize import minimize_scalar
+
+        if probs.ndim != 2:
+            raise ValueError(f"probs must be a 2D matrix (N, K), got shape {probs.shape}")
+        n_samples, n_classes = probs.shape
+        if len(true_indices) != n_samples:
+            raise ValueError(
+                f"Mismatch between probs length ({n_samples}) and true_indices length ({len(true_indices)})"
+            )
+
+        clipped = np.clip(probs, self.eps, 1.0 - self.eps)
+        clipped = clipped / clipped.sum(axis=1, keepdims=True)
+        logits = np.log(clipped)
+
+        # Baseline NLL at T = 1.0 (uncalibrated)
+        self.nll_before_ = float(-np.mean(np.log(clipped[np.arange(n_samples), true_indices])))
+
+        def _nll(T: float) -> float:
+            if T <= 0:
+                return float("inf")
+            scaled_logits = logits / T
+            shifted = scaled_logits - np.max(scaled_logits, axis=1, keepdims=True)
+            exp_shifted = np.exp(shifted)
+            p_hat = exp_shifted / np.sum(exp_shifted, axis=1, keepdims=True)
+            p_hat = np.clip(p_hat, self.eps, 1.0 - self.eps)
+            p_hat = p_hat / np.sum(p_hat, axis=1, keepdims=True)
+            return float(-np.mean(np.log(p_hat[np.arange(n_samples), true_indices])))
+
+        res = minimize_scalar(_nll, bounds=self.bounds, method="bounded")
+        if res.success and np.isfinite(res.fun):
+            self.temperature = float(res.x)
+            self.fit_status_ = "success"
+        else:
+            self.temperature = 1.0
+            self.fit_status_ = "failed_fallback_identity"
+
+        self.nll_after_ = _nll(self.temperature)
+        return self
+
+    def predict_proba(self, probs: np.ndarray) -> np.ndarray:
+        """Applies temperature scaling to raw probabilities and returns calibrated probabilities.
+
+        Strictly enforces argmax invariance: raises RuntimeError if any argmax changes.
+        """
+        if probs.ndim != 2:
+            raise ValueError(f"probs must be a 2D matrix (N, K), got shape {probs.shape}")
+        if self.temperature <= 0:
+            raise ValueError(f"Temperature must be strictly positive, got {self.temperature}")
+
+        clipped = np.clip(probs, self.eps, 1.0 - self.eps)
+        clipped = clipped / clipped.sum(axis=1, keepdims=True)
+        logits = np.log(clipped)
+        scaled_logits = logits / self.temperature
+        shifted = scaled_logits - np.max(scaled_logits, axis=1, keepdims=True)
+        exp_shifted = np.exp(shifted)
+        p_hat = exp_shifted / np.sum(exp_shifted, axis=1, keepdims=True)
+        p_hat = np.clip(p_hat, self.eps, 1.0 - self.eps)
+        p_hat = p_hat / np.sum(p_hat, axis=1, keepdims=True)
+
+        # Mathematical invariance verification: argmax must be identical
+        raw_argmax = np.argmax(probs, axis=1)
+        cal_argmax = np.argmax(p_hat, axis=1)
+        mismatches = int(np.sum(raw_argmax != cal_argmax))
+        if mismatches > 0:
+            raise RuntimeError(
+                f"Temperature scaling violated argmax invariance: {mismatches} class decisions changed!"
+            )
+        return p_hat
+
+
+TemperatureScaler = MulticlassTemperatureScaler
+
+
+def fit_temperature_scaling(
+    probs: np.ndarray,
+    true_indices: np.ndarray,
+    bounds: Tuple[float, float] = (0.05, 20.0),
+    eps: float = 1e-12,
+) -> MulticlassTemperatureScaler:
+    """Convenience functional interface to fit MulticlassTemperatureScaler."""
+    scaler = MulticlassTemperatureScaler(bounds=bounds, eps=eps)
+    return scaler.fit(probs, true_indices)
+
+
+def apply_temperature_scaling(
+    probs: np.ndarray,
+    scaler: MulticlassTemperatureScaler,
+) -> np.ndarray:
+    """Convenience functional interface to apply MulticlassTemperatureScaler."""
+    return scaler.predict_proba(probs)
+
+
+
+# =============================================================================
 # Validation Set Partitioning (123 val_calib / 123 val_conf)
 # =============================================================================
 
@@ -315,13 +451,14 @@ def partition_validation_set(
 
 @dataclass
 class CalibrationMetrics:
-    method: str  # "uncalibrated" | "platt" | "isotonic"
+    method: str  # "uncalibrated" | "platt" | "isotonic" | "temperature_scaling"
     nll: float
     brier: float
     ece: float
     reliability_bins: List[ReliabilityBin]
     per_class_ece: Dict[str, float]
     macro_f1: float  # diagnostic check ONLY -- never used to alter calibration protocol
+    n_changed_predictions: int = 0
 
 
 def evaluate_calibration(
@@ -330,6 +467,7 @@ def evaluate_calibration(
     class_order: List[str],
     method: str,
     n_bins: int = 10,
+    raw_probs: Optional[np.ndarray] = None,
 ) -> CalibrationMetrics:
     """Computes calibration evaluation metrics for one probability matrix."""
     label_to_idx = {c: i for i, c in enumerate(class_order)}
@@ -345,6 +483,11 @@ def evaluate_calibration(
     ece, bins = expected_calibration_error(confidences, correct, n_bins=n_bins)
     per_cls_ece = per_class_ece(probs, true_indices, class_order, n_bins=n_bins)
 
+    n_changed = 0
+    if raw_probs is not None:
+        raw_pred = raw_probs.argmax(axis=1)
+        n_changed = int(np.sum(raw_pred != predicted_indices))
+
     from modules.evaluation import compute_fold_metrics
     predicted_labels = [class_order[i] for i in predicted_indices]
     fold_metrics = compute_fold_metrics(true_labels, predicted_labels, class_order, fold_index=-1)
@@ -352,6 +495,7 @@ def evaluate_calibration(
     return CalibrationMetrics(
         method=method, nll=nll, brier=brier, ece=ece, reliability_bins=bins,
         per_class_ece=per_cls_ece, macro_f1=fold_metrics.macro_f1,
+        n_changed_predictions=n_changed,
     )
 
 

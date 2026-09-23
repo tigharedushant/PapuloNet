@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 from config.config import get_config
+from run_aef_crc_phase9_v2 import configure_phase9_v2
 from modules.calibration_handoff import load_final_pipeline_handoff
 from modules.test_evaluation import evaluate_locked_outer_test, LockedOuterTestGuardError
 from utils.logger import get_module_logger
@@ -48,7 +49,7 @@ def main() -> int:
     )
 
     args = parser.parse_args()
-    config = get_config()
+    config = configure_phase9_v2(get_config())
     logger = get_module_logger("test_evaluation", config.logs_dir, config.log_level)
 
     # 1. Check security guard flag
@@ -66,7 +67,7 @@ def main() -> int:
 
     # 2. Locate production pipeline artifact
     artifact_path = args.artifact_path or (
-        config.project_root / "artifacts" / "phase9" / "final_pipeline_handoff.joblib"
+        config.project_root / "artifacts" / "phase9_v2" / "final_pipeline_handoff.joblib"
     )
 
     if not artifact_path.exists():

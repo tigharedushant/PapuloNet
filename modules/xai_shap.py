@@ -117,15 +117,17 @@ def validate_production_shap_contract(
     classifier: Any,
     selected_feature_mask: np.ndarray,
     expected_full_dim: int = A7_FULL_DIM,
-    expected_k_features: int = 194,
+    expected_k_features: Optional[int] = None,
     branch_dims: Optional[Dict[str, int]] = None,
 ) -> None:
     """
     Strict validation of the Phase 10 / SHAP production contract:
-      - Full feature dimension must equal 1316 (A7: deep 1280, glcm 12, lbp 18, color_lab 6).
-      - BDA mask must be 1-D boolean array of length 1316.
-      - Number of selected active features must equal 194.
-      - Classifier n_features_in_ must equal 194.
+      - Full feature dimension must equal expected_full_dim (default 1316 for A7).
+      - BDA mask must be 1-D boolean array of length expected_full_dim.
+      - Number of selected active features must equal expected_k_features when provided.
+        If expected_k_features is None the count is derived from the mask itself (no strict check).
+        V2 pipeline selects 642 features; V1 legacy selected 194 features.
+      - Classifier n_features_in_ must match expected_k_features.
       - No HOG block in production branch dimensions.
     """
     mask = np.asarray(selected_feature_mask, dtype=bool)
@@ -136,14 +138,16 @@ def validate_production_shap_contract(
             f"Production BDA mask dimension mismatch: expected {expected_full_dim}, got {mask.shape[0]}"
         )
     k = int(np.sum(mask))
-    if k != expected_k_features:
+    # Resolve effective k: use provided value for strict enforcement, or derive from mask
+    effective_k = expected_k_features if expected_k_features is not None else k
+    if expected_k_features is not None and k != expected_k_features:
         raise SHAPError(
             f"Production selected features mismatch: expected {expected_k_features}, got {k}"
         )
     n_in = getattr(classifier, "n_features_in_", None)
-    if n_in is not None and n_in != expected_k_features:
+    if n_in is not None and n_in != effective_k:
         raise SHAPError(
-            f"Production classifier expects {n_in} features, but mask selects {expected_k_features}"
+            f"Production classifier expects {n_in} features, but mask selects {effective_k}"
         )
     if branch_dims is not None:
         if "hog" in branch_dims and branch_dims["hog"] > 0:

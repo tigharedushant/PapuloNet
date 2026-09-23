@@ -1,0 +1,24 @@
+metric,value
+dataset_role,held_out_validation (splitter.py val/)
+n_samples,246
+macro_f1,0.764324
+balanced_accuracy,0.763318
+mcc,0.657338
+accuracy,0.792683
+weighted_f1,0.788766
+Psoriasis_f1,0.8491
+Psoriasis_precision,0.8176
+Psoriasis_recall,0.8832
+Psoriasis_support,137
+Lichen_Planus_f1,0.701
+Lichen_Planus_precision,0.8095
+Lichen_Planus_recall,0.6182
+Lichen_Planus_support,55
+Pityriasis_Rosea_f1,0.6571
+Pityriasis_Rosea_precision,0.6571
+Pityriasis_Rosea_recall,0.6571
+Pityriasis_Rosea_support,35
+Seborrheic_Dermatitis_f1,0.85
+Seborrheic_Dermatitis_precision,0.8095
+Seborrheic_Dermatitis_recall,0.8947
+Seborrheic_Dermatitis_support,19

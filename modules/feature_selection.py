@@ -188,9 +188,10 @@ def select_ga(
 
     Binary chromosome = boolean mask over all fused features. Fitness =
     nested-val Macro-F1 of a fast LogisticRegression trained on the
-    nested-train subset, minus config.ga_feature_count_penalty per
-    selected feature (so the GA cannot just select everything and win
-    on capacity alone). Fixed seed throughout -- population/crossover/
+    nested-train subset. Under the amended Phase 6 V2 protocol, this objective
+    is completely unpenalized (config.ga_feature_count_penalty = 0.0; lambda = 0),
+    evaluating candidate subsets purely on classification performance without an
+    arbitrary sparsity prior. Fixed seed throughout -- population/crossover/
     mutation/tournament selection all draw from one seeded RNG.
     """
     from sklearn.linear_model import LogisticRegression
@@ -211,14 +212,31 @@ def select_ga(
     y_ga_train = [data.y_train[i] for i in ga_train_idx]
     y_ga_val = [data.y_train[i] for i in ga_val_idx]
 
+    # Fold-local class weights calculated strictly from INNER-TRAIN ONLY:
+    # w_c = N_inner_train / (C * N_c_inner_train)
+    n_inner_train = len(y_ga_train)
+    n_classes = len(classes)
+    inner_class_counts = {c: y_ga_train.count(c) for c in classes}
+    inner_class_weights = {
+        c: n_inner_train / (n_classes * max(1, count))
+        for c, count in inner_class_counts.items()
+    }
+    sw_ga_train = np.array([inner_class_weights[y] for y in y_ga_train], dtype=np.float64)
+    penalty = getattr(config, "ga_feature_count_penalty", 0.0)
+
     def fitness(mask: np.ndarray) -> float:
         if mask.sum() == 0:
             return -1.0  # degenerate individual -- worst possible fitness, never selected
-        clf = LogisticRegression(max_iter=300, random_state=random_seed)
-        clf.fit(X_ga_train[:, mask], y_ga_train)
+        clf = LogisticRegression(
+            C=1.0,
+            solver="lbfgs",
+            max_iter=300,
+            random_state=random_seed,
+        )
+        clf.fit(X_ga_train[:, mask], y_ga_train, sample_weight=sw_ga_train)
         y_pred = clf.predict(X_ga_val[:, mask])
         metrics = compute_fold_metrics(y_ga_val, list(y_pred), classes, fold_index=0)
-        return metrics.macro_f1 - config.ga_feature_count_penalty * int(mask.sum())
+        return metrics.macro_f1 - penalty * int(mask.sum())
 
     # Initialize population -- each individual selects a random ~15% of
     # features initially (roughly matching feature_selection_top_k's
@@ -267,7 +285,10 @@ def select_ga(
         extra={
             "population_size": pop_size, "generations": config.ga_generations,
             "mutation_rate": config.ga_mutation_rate, "crossover_rate": config.ga_crossover_rate,
-            "feature_count_penalty": config.ga_feature_count_penalty, "best_nested_fitness": best_fitness,
+            "feature_count_penalty": penalty,
+            "fitness_objective": "inner_validation_macro_f1",
+            "parsimony_penalty": None if penalty == 0.0 else penalty,
+            "best_nested_fitness": best_fitness,
             "history": history,
         },
     )
@@ -308,7 +329,7 @@ def select_bda(
             X_new[d_star] = True
 
     Fitness:
-        fitness = Macro-F1(nested_val) - penalty * sum(mask)
+        fitness = Macro-F1(nested_val)  # lambda = 0 (unpenalized under Phase 6 V2 protocol)
         identical to GA's objective formulation for direct comparability.
     """
     from sklearn.linear_model import LogisticRegression
@@ -330,15 +351,31 @@ def select_bda(
     y_bda_train = [data.y_train[i] for i in bda_train_idx]
     y_bda_val = [data.y_train[i] for i in bda_val_idx]
 
-    penalty = getattr(config, "bda_feature_count_penalty", getattr(config, "ga_feature_count_penalty", 0.0005))
+    penalty = getattr(config, "bda_feature_count_penalty", getattr(config, "ga_feature_count_penalty", 0.0))
+
+    # Fold-local class weights calculated strictly from INNER-TRAIN ONLY:
+    # w_c = N_inner_train / (C * N_c_inner_train)
+    n_inner_train = len(y_bda_train)
+    n_classes = len(classes)
+    inner_class_counts = {c: y_bda_train.count(c) for c in classes}
+    inner_class_weights = {
+        c: n_inner_train / (n_classes * max(1, count))
+        for c, count in inner_class_counts.items()
+    }
+    sw_bda_train = np.array([inner_class_weights[y] for y in y_bda_train], dtype=np.float64)
 
     def evaluate_mask(mask: np.ndarray) -> Tuple[float, float]:
         """Returns (fitness, macro_f1)."""
         k = int(mask.sum())
         if k == 0:
             return -1.0, 0.0
-        clf = LogisticRegression(max_iter=300, random_state=random_seed)
-        clf.fit(X_bda_train[:, mask], y_bda_train)
+        clf = LogisticRegression(
+            C=1.0,
+            solver="lbfgs",
+            max_iter=300,
+            random_state=random_seed,
+        )
+        clf.fit(X_bda_train[:, mask], y_bda_train, sample_weight=sw_bda_train)
         y_pred = clf.predict(X_bda_val[:, mask])
         metrics = compute_fold_metrics(y_bda_val, list(y_pred), classes, fold_index=0)
         fit_val = metrics.macro_f1 - penalty * k
@@ -459,6 +496,8 @@ def select_bda(
             "w_min": w_min,
             "transfer_function": "time_varying_v_shaped",
             "feature_count_penalty": penalty,
+            "fitness_objective": "inner_validation_macro_f1",
+            "parsimony_penalty": None if penalty == 0.0 else penalty,
             "best_nested_fitness": best_fitness,
             "best_nested_macro_f1": best_macro_f1,
             "convergence_history": history,
@@ -587,9 +626,10 @@ def run_selector(name: str, data: FusionFoldData, config: PSDConfig, random_seed
 # Production BDA Mask Interface (Authorized for experimental execution)
 # ============================================================
 
-def get_production_bda_mask_path(config: PSDConfig) -> Path:
+def get_production_bda_mask_path(config: PSDConfig, artifacts_dir: Optional[Path] = None) -> Path:
     """Returns the canonical artifact path for the persisted production BDA mask."""
-    return config.aef_crc_phase6_artifacts_dir / "production_bda_mask.joblib"
+    base_dir = artifacts_dir if artifacts_dir is not None else config.aef_crc_phase6_artifacts_dir
+    return base_dir / "production_bda_mask.joblib"
 
 
 def save_production_bda_mask(
@@ -597,10 +637,11 @@ def save_production_bda_mask(
     config: PSDConfig,
     metadata: Optional[Dict[str, Any]] = None,
     run_id: Optional[str] = None,
+    artifacts_dir: Optional[Path] = None,
 ) -> Path:
     """Persists the single frozen production BDA mask artifact after execution on the
     unified 1146-image cohort.
-    Enforces the exact 1348-D boolean contract.
+    Enforces the exact boolean contract (1298-D for A2, 1316-D for A7, or 1348-D for A6).
     """
     import joblib
     from datetime import datetime, timezone
@@ -609,8 +650,8 @@ def save_production_bda_mask(
 
     if not isinstance(mask, np.ndarray):
         raise TypeError(f"Production BDA mask must be a numpy ndarray, got {type(mask)}")
-    if mask.ndim != 1 or mask.shape[0] not in (1316, 1348):
-        raise ValueError(f"Production BDA mask dimension mismatch: expected 1316-D or 1348-D, got shape {mask.shape}")
+    if mask.ndim != 1 or mask.shape[0] not in (1298, 1316, 1348):
+        raise ValueError(f"Production BDA mask dimension mismatch: expected 1298-D, 1316-D, or 1348-D, got shape {mask.shape}")
     if mask.dtype != bool:
         raise TypeError(f"Production BDA mask must have boolean dtype, got {mask.dtype}")
     if mask.sum() == 0:
@@ -619,7 +660,7 @@ def save_production_bda_mask(
     if run_id is None:
         run_id = get_active_run_id(config) or ""
 
-    out_path = get_production_bda_mask_path(config)
+    out_path = get_production_bda_mask_path(config, artifacts_dir=artifacts_dir)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "mask": mask,
@@ -635,14 +676,16 @@ def save_production_bda_mask(
     return out_path
 
 
-def load_production_bda_mask(config: PSDConfig, expected_run_id: Optional[str] = None) -> np.ndarray:
+def load_production_bda_mask(
+    config: PSDConfig, expected_run_id: Optional[str] = None, artifacts_dir: Optional[Path] = None,
+) -> np.ndarray:
     """Loads and validates the authoritative frozen production BDA mask.
     Fails loudly if the artifact does not exist (does NOT fabricate or re-run).
     """
     import joblib
     from modules.calibration_handoff import get_active_run_id
 
-    path = get_production_bda_mask_path(config)
+    path = get_production_bda_mask_path(config, artifacts_dir=artifacts_dir)
     if not path.exists():
         raise FileNotFoundError(
             f"Authoritative production BDA mask artifact not found at {path}. "
@@ -677,9 +720,9 @@ def load_production_bda_mask(config: PSDConfig, expected_run_id: Optional[str] =
     else:
         raise TypeError(f"Unexpected production BDA mask payload type: {type(payload)}")
 
-    if not isinstance(mask, np.ndarray) or mask.ndim != 1 or mask.shape[0] not in (1316, 1348) or mask.dtype != bool:
+    if not isinstance(mask, np.ndarray) or mask.ndim != 1 or mask.shape[0] not in (1298, 1316, 1348) or mask.dtype != bool:
         raise ValueError(
-            f"Corrupt production BDA mask at {path}: expected 1316-D or 1348-D boolean array, "
+            f"Corrupt production BDA mask at {path}: expected 1298-D, 1316-D, or 1348-D boolean array, "
             f"got {type(mask)} with shape {getattr(mask, 'shape', None)} and dtype {getattr(mask, 'dtype', None)}"
         )
     return mask

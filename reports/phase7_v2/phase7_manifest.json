@@ -1,0 +1,209 @@
+{
+  "phase": "phase7_v2",
+  "experiment_type": "model_selection_and_evaluation",
+  "pipeline_name": "A7-BDA-RandomForest",
+  "run_id": "AEFCRC_P7_V2_20260921_074018_936e6e73",
+  "upstream_phase6_run_id": "AEFCRC_A7_EXP_20260920_205134_b2982ec5",
+  "representation_id": "efficientnet_b0_43d581b96f8ec368",
+  "source_experiment": "P3-V2-Focal",
+  "random_seed": 42,
+  "pipeline_definition": {
+    "arm_id": "A7",
+    "arm_name": "EfficientNet+GLCM+LBP+LAB",
+    "total_dimension": 1316,
+    "branches": [
+      "deep",
+      "glcm",
+      "lbp",
+      "color_lab"
+    ],
+    "branch_dimensions": {
+      "deep": 1280,
+      "glcm": 12,
+      "lbp": 18,
+      "color_lab": 6
+    },
+    "feature_selector": {
+      "name": "bda",
+      "objective": "inner_validation_macro_f1",
+      "penalty": 0.0,
+      "proxy_classifier": "LogisticRegression(C=1.0, lbfgs, max_iter=300)",
+      "proxy_weighting": "inner_train_balanced"
+    },
+    "primary_classifier": {
+      "name": "random_forest",
+      "n_estimators": 300,
+      "criterion": "gini",
+      "max_features": "sqrt",
+      "bootstrap": true,
+      "sample_weight": "fold_local_balanced"
+    }
+  },
+  "dataset_freeze_hash": "964d91f8178d5bb7123a7cc02388cd57912bba1e836b2a3ab70b9fa98441919f",
+  "fold_plan_hash": "3c54f09f834632f8f771b46d5a98fb773aa6ee78878b00a0c58806c575b8f7b9",
+  "final_cv_summary": {
+    "n_folds": 5,
+    "dimension_mean": 639.4,
+    "dimension_std": 140.57965713430946,
+    "macro_f1_mean": 0.7088960544904385,
+    "macro_f1_std": 0.033626219181597194,
+    "balanced_accuracy_mean": 0.7065137986410494,
+    "balanced_accuracy_std": 0.0260865183513382,
+    "mcc_mean": 0.5872734709995189,
+    "mcc_std": 0.036707866689016516,
+    "accuracy_mean": 0.7495538257072337,
+    "accuracy_std": 0.022639600827617675,
+    "weighted_f1_mean": 0.745657323539195,
+    "weighted_f1_std": 0.02285000387846267,
+    "per_class_f1": {
+      "Psoriasis": 0.8124373931252376,
+      "Lichen_Planus": 0.6322848753798983,
+      "Pityriasis_Rosea": 0.6830930833872011,
+      "Seborrheic_Dermatitis": 0.7077688660694169
+    },
+    "confusion_matrix_sum": [
+      [
+        535,
+        46,
+        35,
+        22
+      ],
+      [
+        86,
+        148,
+        19,
+        5
+      ],
+      [
+        38,
+        11,
+        113,
+        0
+      ],
+      [
+        20,
+        3,
+        2,
+        63
+      ]
+    ]
+  },
+  "final_retrain_summary": {
+    "training_samples": 1146,
+    "calibration_samples": 246,
+    "production_bda_selected_count": 642,
+    "production_bda_branch_retained": {
+      "deep": 626,
+      "glcm": 7,
+      "lbp": 6,
+      "color_lab": 3
+    },
+    "calibration_performance": {
+      "macro_f1": 0.7643241479988632,
+      "balanced_accuracy": 0.7633182990655139,
+      "mcc": 0.6573378085578504,
+      "accuracy": 0.7926829268292683,
+      "weighted_f1": 0.7887663641964688,
+      "per_class_f1": {
+        "Psoriasis": 0.8491228070175438,
+        "Lichen_Planus": 0.7010309278350515,
+        "Pityriasis_Rosea": 0.6571428571428571,
+        "Seborrheic_Dermatitis": 0.85
+      }
+    }
+  },
+  "dominance_diagnostics": {
+    "total_samples": 1146,
+    "Psoriasis_true_count": 638,
+    "Psoriasis_true_pct": 55.67,
+    "Psoriasis_pred_count": 679,
+    "Psoriasis_pred_pct": 59.25,
+    "Psoriasis_pred_ratio": 1.0643,
+    "Lichen_Planus_true_count": 258,
+    "Lichen_Planus_true_pct": 22.51,
+    "Lichen_Planus_pred_count": 208,
+    "Lichen_Planus_pred_pct": 18.15,
+    "Lichen_Planus_pred_ratio": 0.8062,
+    "Pityriasis_Rosea_true_count": 162,
+    "Pityriasis_Rosea_true_pct": 14.14,
+    "Pityriasis_Rosea_pred_count": 169,
+    "Pityriasis_Rosea_pred_pct": 14.75,
+    "Pityriasis_Rosea_pred_ratio": 1.0432,
+    "Seborrheic_Dermatitis_true_count": 88,
+    "Seborrheic_Dermatitis_true_pct": 7.68,
+    "Seborrheic_Dermatitis_pred_count": 90,
+    "Seborrheic_Dermatitis_pred_pct": 7.85,
+    "Seborrheic_Dermatitis_pred_ratio": 1.0227
+  },
+  "gate_evaluation": {
+    "passed_all": true,
+    "decision": "CERTIFIED_WINNER",
+    "pipeline_selected": "A7-BDA",
+    "checks": {
+      "macro_f1_generalization": true,
+      "minority_class_viability": true,
+      "psoriasis_dominance_mitigated": true,
+      "calibration_generalization": true
+    },
+    "details": {
+      "macro_f1": {
+        "observed": 0.7089,
+        "threshold": 0.7,
+        "passed": true
+      },
+      "minority_classes": {
+        "Psoriasis": {
+          "observed": 0.8124,
+          "threshold": 0.75,
+          "passed": true
+        },
+        "Lichen_Planus": {
+          "observed": 0.6323,
+          "threshold": 0.55,
+          "passed": true
+        },
+        "Pityriasis_Rosea": {
+          "observed": 0.6831,
+          "threshold": 0.6,
+          "passed": true
+        },
+        "Seborrheic_Dermatitis": {
+          "observed": 0.7078,
+          "threshold": 0.6,
+          "passed": true
+        }
+      },
+      "psoriasis_dominance": {
+        "observed_ratio": 1.0643,
+        "threshold": 1.15,
+        "passed": true
+      },
+      "calibration_set": {
+        "observed_macro_f1": 0.7643,
+        "threshold": 0.65,
+        "passed": true
+      }
+    },
+    "criteria_frozen": {
+      "min_macro_f1": 0.7,
+      "min_per_class_f1": {
+        "Psoriasis": 0.75,
+        "Lichen_Planus": 0.55,
+        "Pityriasis_Rosea": 0.6,
+        "Seborrheic_Dermatitis": 0.6
+      },
+      "max_psoriasis_pred_ratio": 1.15,
+      "min_calibration_macro_f1": 0.65,
+      "fallback_candidate": "full_a7"
+    }
+  },
+  "timestamp": "2026-09-21T07:40:18.199035+00:00",
+  "reports_generated": [
+    "/mnt/c/Users/ASUS/Downloads/PSD_HP_AEF_CRC_PopuloNet/PSD_HP/reports/phase7_v2/final_cv_results.csv",
+    "/mnt/c/Users/ASUS/Downloads/PSD_HP_AEF_CRC_PopuloNet/PSD_HP/reports/phase7_v2/final_cv_class_performance.csv",
+    "/mnt/c/Users/ASUS/Downloads/PSD_HP_AEF_CRC_PopuloNet/PSD_HP/reports/phase7_v2/final_cv_confusion_matrix.csv",
+    "/mnt/c/Users/ASUS/Downloads/PSD_HP_AEF_CRC_PopuloNet/PSD_HP/reports/phase7_v2/psoriasis_dominance_diagnostic.csv",
+    "/mnt/c/Users/ASUS/Downloads/PSD_HP_AEF_CRC_PopuloNet/PSD_HP/reports/phase7_v2/calibration_set_performance.csv",
+    "/mnt/c/Users/ASUS/Downloads/PSD_HP_AEF_CRC_PopuloNet/PSD_HP/reports/phase7_v2/phase7_manifest.json"
+  ]
+}

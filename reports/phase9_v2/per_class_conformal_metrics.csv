@@ -1,0 +1,5 @@
+class_name,support,marginal_coverage,mondrian_coverage,marginal_inclusion_rate,mondrian_inclusion_rate
+Psoriasis,69,0.971014,0.913043,0.715447,0.642276
+Lichen_Planus,28,0.821429,0.964286,0.300813,0.414634
+Pityriasis_Rosea,17,0.764706,1.000000,0.146341,0.422764
+Seborrheic_Dermatitis,9,1.000000,1.000000,0.097561,0.073171

@@ -37,7 +37,8 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from modules.calibration import apply_platt_scaling, apply_isotonic_scaling, clip_probabilities
+from config.config import PSDConfig, get_config
+from modules.calibration import apply_platt_scaling, apply_isotonic_scaling, apply_temperature_scaling, clip_probabilities
 from modules.calibration_handoff import (
     ConformalArtifact,
     FinalPipelineHandoff,
@@ -85,6 +86,7 @@ class AEFCRCInferenceEngine:
         self,
         artifact: Union[FinalPipelineHandoff, ConformalArtifact, Path, str],
         device: str = "auto",
+        config: Optional[PSDConfig] = None,
     ) -> None:
         if isinstance(artifact, (str, Path)):
             path = Path(artifact)
@@ -104,6 +106,74 @@ class AEFCRCInferenceEngine:
         self.mondrian_q_hat = self.artifact.mondrian_q_hat
         self._backbone_model = None
         self._shap_explainer = None
+
+        # Configuration resolution, propagation, and strict validation
+        self.config = self._resolve_and_validate_config(config)
+
+    def _is_v2_artifact(self) -> bool:
+        """Determines if the loaded artifact belongs to the certified PapuloNet V2 pipeline."""
+        repr_id = getattr(self.artifact, "representation_id", "")
+        if repr_id == "efficientnet_b0_43d581b96f8ec368":
+            return True
+        if getattr(self.artifact, "calibration_method", "") == "temperature_scaling":
+            return True
+        run_id = getattr(self.artifact, "run_id", "")
+        if "_V2_" in run_id or run_id.startswith("AEFCRC_P9_V2"):
+            return True
+        branch_dims = getattr(self.artifact, "branch_dims", None)
+        if branch_dims is not None and "hog" not in branch_dims:
+            return True
+        if self.mask is not None and self.mask.shape[0] == 1316 and int(self.mask.sum()) == 642:
+            return True
+        return False
+
+    def _resolve_and_validate_config(self, config: Optional[PSDConfig]) -> PSDConfig:
+        """
+        Resolves or validates the configuration for end-to-end inference.
+        Guarantees that V2 inference strictly executes with preprocessing_mode="standard",
+        matching the frozen Phase 7/8/9 training and calibration contracts.
+        """
+        from modules.experiment_config import representation_id
+
+        is_v2 = self._is_v2_artifact()
+
+        if config is None:
+            if is_v2:
+                from run_aef_crc_phase9_v2 import configure_phase9_v2
+                resolved_cfg = configure_phase9_v2(get_config())
+            else:
+                resolved_cfg = get_config()
+            return resolved_cfg
+
+        # External config provided: validate against artifact contract
+        if not isinstance(config, PSDConfig):
+            raise TypeError(f"Expected config of type PSDConfig, got {type(config)}")
+
+        if is_v2:
+            if config.preprocessing_mode != "standard":
+                raise ValueError(
+                    f"Configuration validation failed: V2 artifact requires preprocessing_mode='standard', "
+                    f"but provided config has preprocessing_mode='{config.preprocessing_mode}'."
+                )
+            artifact_repr = getattr(self.artifact, "representation_id", None)
+            if artifact_repr and artifact_repr.startswith("efficientnet_b0_"):
+                cfg_repr = representation_id(config)
+                if cfg_repr != artifact_repr:
+                    raise ValueError(
+                        f"Configuration validation failed: representation_id mismatch. "
+                        f"Config produced '{cfg_repr}', but V2 artifact requires '{artifact_repr}'."
+                    )
+        else:
+            artifact_repr = getattr(self.artifact, "representation_id", None)
+            if artifact_repr and artifact_repr.startswith("efficientnet_b0_"):
+                cfg_repr = representation_id(config)
+                if cfg_repr != artifact_repr:
+                    raise ValueError(
+                        f"Configuration validation failed: representation_id mismatch. "
+                        f"Config produced '{cfg_repr}', but artifact requires '{artifact_repr}'."
+                    )
+
+        return config
 
     # -------------------------------------------------------------------------
     # Stage 1: Input Validation
@@ -150,18 +220,16 @@ class AEFCRCInferenceEngine:
     # -------------------------------------------------------------------------
     def preprocess_image(self, img: Image.Image) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Standardized preprocessing respecting config.preprocessing_mode:
+        Standardized preprocessing respecting self.config.preprocessing_mode:
         1. Converts PIL image to BGR for ConditionalPreprocessor.
         2. Applies ConditionalPreprocessor (hair removal / CLAHE if triggered, else no-op).
         3. Prepares:
            - TensorFlow/Keras float32 array normalized with EfficientNet preprocess_input.
            - Resized RGB uint8 numpy array for handcrafted feature extraction.
         """
-        from config.config import get_config
         from modules.preprocessing import ConditionalPreprocessor
 
-        cfg = get_config()
-        preprocessor = ConditionalPreprocessor(cfg)
+        preprocessor = ConditionalPreprocessor(self.config)
 
         # Convert to BGR uint8
         rgb_raw = np.asarray(img, dtype=np.uint8)
@@ -170,7 +238,7 @@ class AEFCRCInferenceEngine:
         # Apply conditional or standard preprocessing
         preprocessed_bgr = preprocessor.process(bgr_raw, "inference_sample").image
         img_rgb = cv2.cvtColor(preprocessed_bgr, cv2.COLOR_BGR2RGB)
-        resized_rgb = cv2.resize(img_rgb, (cfg.image_size, cfg.image_size))
+        resized_rgb = cv2.resize(img_rgb, (self.config.image_size, self.config.image_size))
 
         # Keras EfficientNet preprocess_input
         from tensorflow.keras.applications.efficientnet import preprocess_input
@@ -198,10 +266,31 @@ class AEFCRCInferenceEngine:
 
             with tf.device(target_device):
                 ckpt_path = getattr(self.artifact, "backbone_checkpoint_path", None)
-                if ckpt_path and Path(ckpt_path).exists():
+                resolved_ckpt = None
+                if ckpt_path:
+                    p = Path(ckpt_path)
+                    if p.exists():
+                        resolved_ckpt = p
+                    else:
+                        ckpt_str = str(ckpt_path).replace("\\", "/")
+                        rel_idx = ckpt_str.find("artifacts/")
+                        if rel_idx != -1:
+                            cand = Path(ckpt_str[rel_idx:])
+                            if cand.exists():
+                                resolved_ckpt = cand
+
+                if resolved_ckpt is None:
+                    v2_cand = Path("artifacts/phase3_v2/P3-V2-Focal/fold_01/best_model.keras")
+                    v1_cand = Path("artifacts/phase3/P3-BASE/fold_00/best_model.keras")
+                    if self._is_v2_artifact() and v2_cand.exists():
+                        resolved_ckpt = v2_cand
+                    elif v1_cand.exists():
+                        resolved_ckpt = v1_cand
+
+                if resolved_ckpt and resolved_ckpt.exists():
                     try:
                         from modules.training import _safe_load_model
-                        loaded_model = _safe_load_model(Path(ckpt_path))
+                        loaded_model = _safe_load_model(resolved_ckpt)
                         self._backbone_model = loaded_model
                     except Exception:
                         self._backbone_model = EfficientNetB0(
@@ -230,7 +319,6 @@ class AEFCRCInferenceEngine:
         Total: 1280 + 12 + 18 + 32 + 6 = 1348.
         """
         import tensorflow as tf
-        from config.config import get_config
         from modules.handcrafted_features import HandcraftedFeatureExtractor
 
         # 1. Deep features (1280-D: 0:1280) using TensorFlow/Keras EfficientNet-B0
@@ -255,9 +343,8 @@ class AEFCRCInferenceEngine:
                     deep_arr = np.asarray(raw_deep)
             deep_feats = deep_arr.squeeze(0).flatten()
 
-        # 2. Handcrafted features from Phase 4 extractor
-        cfg = get_config()
-        extractor = HandcraftedFeatureExtractor(cfg)
+        # 2. Handcrafted features from Phase 4 extractor (consuming self.config)
+        extractor = HandcraftedFeatureExtractor(self.config)
         bgr = cv2.cvtColor(rgb_np, cv2.COLOR_RGB2BGR)
         fv = extractor.extract(bgr)
 
@@ -332,17 +419,44 @@ class AEFCRCInferenceEngine:
     # Stage 5: Base Classifier Inference
     # -------------------------------------------------------------------------
     def predict_raw_probabilities(self, masked_features: np.ndarray) -> np.ndarray:
-        """Runs predict_proba() using the fitted base Random Forest classifier."""
+        """
+        Runs predict_proba() using the fitted base Random Forest classifier.
+        Dynamically aligns probability columns from self.classifier.classes_
+        to canonical self.classes order via string label matching.
+        """
         if self.classifier is None:
             raise RuntimeError("Inference artifact does not contain a fitted final_classifier.")
-        return self.classifier.predict_proba(masked_features)
+        raw_probs = self.classifier.predict_proba(masked_features)
+
+        # Scikit-learn RandomForestClassifier.classes_ is sorted lexicographically by default.
+        # Dynamically map probability columns to match canonical self.classes by label name.
+        if hasattr(self.classifier, "classes_") and self.classes is not None:
+            rf_classes = [str(c) for c in self.classifier.classes_]
+            canonical_classes = [str(c) for c in self.classes]
+            if set(rf_classes) != set(canonical_classes) or len(rf_classes) != len(canonical_classes):
+                raise ValueError(
+                    f"Classifier classes {rf_classes} do not match expected canonical classes {canonical_classes}."
+                )
+            if rf_classes != canonical_classes:
+                canonical_probs = np.zeros_like(raw_probs)
+                for c_idx, cls in enumerate(canonical_classes):
+                    rf_idx = rf_classes.index(cls)
+                    if raw_probs.ndim == 1:
+                        canonical_probs[c_idx] = raw_probs[rf_idx]
+                    else:
+                        canonical_probs[:, c_idx] = raw_probs[:, rf_idx]
+                return canonical_probs
+
+        return raw_probs
 
     # -------------------------------------------------------------------------
     # Stage 6: Probability Calibration
     # -------------------------------------------------------------------------
     def apply_calibration(self, raw_probs: np.ndarray) -> np.ndarray:
-        """Applies the Phase 8 calibration transform (Primary: Platt; Secondary: Isotonic)."""
-        if self.calib_method == "platt" and self.artifact.platt_models is not None:
+        """Applies the Phase 8 calibration transform (Primary: Temperature Scaling for V2; Platt/Isotonic for V1)."""
+        if self.calib_method == "temperature_scaling" and getattr(self.artifact, "temperature_scaler", None) is not None:
+            return apply_temperature_scaling(raw_probs, self.artifact.temperature_scaler)
+        elif self.calib_method == "platt" and self.artifact.platt_models is not None:
             fit_obj = type("PlattFit", (), {"models": self.artifact.platt_models})()
             return apply_platt_scaling(raw_probs, fit_obj, self.classes)
         elif self.calib_method == "isotonic" and self.artifact.isotonic_models is not None:
@@ -356,23 +470,31 @@ class AEFCRCInferenceEngine:
     # -------------------------------------------------------------------------
     def predict_conformal_sets(self, calib_probs: np.ndarray) -> Tuple[List[str], List[str]]:
         """
-        Generates conformal prediction sets:
+        Generates conformal prediction sets using the canonical nonconformity score:
+            s(x, c) = 1.0 - P_hat(c | x)
+        Inclusion rule:
+            C_hat(x) = { c in Y : s(x, c) <= q_hat }
+                     = { c in Y : (1.0 - P_hat(c | x)) <= q_hat }
+
+        Uses canonical evaluation to avoid asymmetric IEEE-754 roundoff errors
+        that arise from computing (1.0 - q_hat) and then comparing p >= threshold.
+
         1. Primary: Marginal split-conformal prediction set.
         2. Secondary: Class-conditional Mondrian prediction set.
         """
-        probs_row = calib_probs[0]
+        from modules.conformal import predict_conformal_sets as conformal_marginal
+        from modules.conformal import predict_conformal_sets_mondrian as conformal_mondrian
 
-        # Marginal threshold
-        threshold = 1.0 - self.marginal_q_hat
-        marginal_set = [self.classes[c] for c in range(len(self.classes)) if probs_row[c] >= threshold]
+        probs_2d = calib_probs  # shape (1, C)
 
-        # Mondrian threshold
-        mondrian_set: List[str] = []
-        for c, cls_name in enumerate(self.classes):
-            q_c = self.mondrian_q_hat.get(cls_name, 1.0) if self.mondrian_q_hat else 1.0
-            threshold_c = 1.0 - q_c
-            if probs_row[c] >= threshold_c:
-                mondrian_set.append(cls_name)
+        # Marginal
+        marginal_sets = conformal_marginal(probs_2d, self.marginal_q_hat, self.classes)
+        marginal_set = marginal_sets[0] if marginal_sets else []
+
+        # Mondrian
+        q_hat_by_class = self.mondrian_q_hat if self.mondrian_q_hat else {cls: 1.0 for cls in self.classes}
+        mondrian_sets = conformal_mondrian(probs_2d, q_hat_by_class, self.classes)
+        mondrian_set = mondrian_sets[0] if mondrian_sets else []
 
         return marginal_set, mondrian_set
 

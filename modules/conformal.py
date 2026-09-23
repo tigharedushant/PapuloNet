@@ -136,8 +136,13 @@ def predict_conformal_sets(
 ) -> List[List[str]]:
     """
     Constructs pooled marginal conformal prediction sets for each sample:
-        C_hat(x) = { c in Y : 1 - P_hat(c | x) <= q_hat }
-                 = { c in Y : P_hat(c | x) >= 1 - q_hat }
+        C_hat(x) = { c in Y : s(x, c) <= q_hat }
+                 = { c in Y : 1.0 - P_hat(c | x) <= q_hat }
+
+    Directly evaluates the canonical nonconformity score condition:
+        (1.0 - P_hat(c | x)) <= q_hat
+    to prevent asymmetric IEEE-754 floating-point roundoff errors where
+    1.0 - (1.0 - p) > p causes the exact boundary sample (s == q_hat) to be dropped.
 
     Args:
         probs: Array of shape (N, C) containing predicted class probabilities.
@@ -147,11 +152,10 @@ def predict_conformal_sets(
     Returns:
         List of length N, where each element is a list of predicted class names.
     """
-    threshold = 1.0 - q_hat
     pred_sets: List[List[str]] = []
     for i in range(len(probs)):
         row = probs[i]
-        included = [class_order[c] for c in range(len(class_order)) if row[c] >= threshold]
+        included = [class_order[c] for c in range(len(class_order)) if (1.0 - row[c]) <= q_hat]
         pred_sets.append(included)
     return pred_sets
 
@@ -163,8 +167,12 @@ def predict_conformal_sets_mondrian(
 ) -> List[List[str]]:
     """
     Constructs class-conditional Mondrian conformal prediction sets:
-        C_hat(x) = { c in Y : 1 - P_hat(c | x) <= q_hat_c }
-                 = { c in Y : P_hat(c | x) >= 1 - q_hat_c }
+        C_hat(x) = { c in Y : s(x, c) <= q_hat_c }
+                 = { c in Y : 1.0 - P_hat(c | x) <= q_hat_c }
+
+    Directly evaluates the canonical nonconformity score condition:
+        (1.0 - P_hat(c | x)) <= q_c
+    to prevent asymmetric IEEE-754 floating-point roundoff errors.
 
     Args:
         probs: Array of shape (N, C) containing predicted class probabilities.
@@ -180,8 +188,7 @@ def predict_conformal_sets_mondrian(
         included: List[str] = []
         for c, cls_name in enumerate(class_order):
             q_c = q_hat_by_class.get(cls_name, 1.0)
-            threshold_c = 1.0 - q_c
-            if row[c] >= threshold_c:
+            if (1.0 - row[c]) <= q_c:
                 included.append(cls_name)
         pred_sets.append(included)
     return pred_sets

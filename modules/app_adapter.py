@@ -12,14 +12,14 @@ SCIENTIFIC AND ARCHITECTURAL CONTRACT:
    - Validates image dimensions (>=32x32), RGB variance, and format.
    - Applies standardized preprocessing (ConditionalPreprocessor + Keras preprocess_input).
    - Extracts 1316-D multimodal representation (EfficientNet-B0 1280, GLCM 12, LBP 18, Color LAB 6).
-   - Applies frozen Phase 6 BDA 194-D boolean mask.
-   - Runs production Random Forest (194-D) -> raw uncalibrated probabilities.
-   - Applies Phase 8 Platt sigmoid probability calibration.
+   - Applies frozen Phase 7 BDA 642-D boolean mask (V2).
+   - Runs production Random Forest (642-D) -> raw uncalibrated probabilities.
+   - Applies Phase 8 Temperature Scaling probability calibration.
    - Computes Phase 9 Split-Conformal prediction sets (Marginal 90% + Mondrian Class-Conditional).
    - Determines clinical review status (STANDARD_OUTPUT, SPECIALIST_REVIEW_REQUIRED, etc.).
 3. Explainable AI:
    - Grad-CAM: Explicitly targets the pre-softmax logit of the EfficientNet-B0 Dense head.
-   - TreeSHAP: Explicitly computes raw prediction attributions across the 194 active features.
+   - TreeSHAP: Explicitly computes raw prediction attributions across the 642 active features (V2).
    - Explanations are packaged as PIL images and Pandas DataFrames for direct UI consumption.
 4. Boundaries:
    - Does NOT call engine.predict(..., explain=True).
@@ -39,6 +39,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
+from config.config import PSDConfig
 from modules.calibration_handoff import (
     FinalPipelineHandoff,
     load_final_pipeline_handoff,
@@ -91,10 +92,12 @@ class AppInferencePipeline:
         self,
         handoff: FinalPipelineHandoff,
         device: str = "auto",
+        config: Optional[PSDConfig] = None,
     ) -> None:
         self.handoff = handoff
         self.device = device
-        self.engine = AEFCRCInferenceEngine(artifact=handoff, device=device)
+        self.engine = AEFCRCInferenceEngine(artifact=handoff, device=device, config=config)
+        self.config = self.engine.config
         self.gradcam_explainer = GradCAMExplainer(
             model=self.engine._get_backbone(),
             classes=handoff.class_order,
@@ -112,16 +115,17 @@ _PIPELINE_CACHE: Dict[Tuple[str, str], AppInferencePipeline] = {}
 
 
 def get_app_pipeline(
-    handoff_or_path: Union[FinalPipelineHandoff, Path, str] = Path("artifacts/phase9/final_pipeline_handoff.joblib"),
+    handoff_or_path: Union[FinalPipelineHandoff, Path, str] = Path("artifacts/phase9_v2/final_pipeline_handoff.joblib"),
     device: str = "auto",
     use_cache: bool = True,
+    config: Optional[PSDConfig] = None,
 ) -> AppInferencePipeline:
     """Retrieves or instantiates an AppInferencePipeline instance."""
     if isinstance(handoff_or_path, FinalPipelineHandoff):
         cache_key = (handoff_or_path.representation_id, device)
         if use_cache and cache_key in _PIPELINE_CACHE:
             return _PIPELINE_CACHE[cache_key]
-        pipeline = AppInferencePipeline(handoff=handoff_or_path, device=device)
+        pipeline = AppInferencePipeline(handoff=handoff_or_path, device=device, config=config)
         if use_cache:
             _PIPELINE_CACHE[cache_key] = pipeline
         return pipeline
@@ -139,7 +143,7 @@ def get_app_pipeline(
     except Exception as exc:
         raise AppInferenceError(f"Failed to load pipeline handoff from '{p}': {exc}") from exc
 
-    pipeline = AppInferencePipeline(handoff=handoff, device=device)
+    pipeline = AppInferencePipeline(handoff=handoff, device=device, config=config)
     if use_cache:
         _PIPELINE_CACHE[cache_key] = pipeline
     return pipeline
@@ -152,9 +156,10 @@ def clear_app_pipeline_cache() -> None:
 
 def run_app_inference(
     image_input: Union[Path, str, Image.Image, np.ndarray, bytes],
-    handoff_path: Union[FinalPipelineHandoff, Path, str] = Path("artifacts/phase9/final_pipeline_handoff.joblib"),
+    handoff_path: Union[FinalPipelineHandoff, Path, str] = Path("artifacts/phase9_v2/final_pipeline_handoff.joblib"),
     device: str = "auto",
     pipeline: Optional[AppInferencePipeline] = None,
+    config: Optional[PSDConfig] = None,
 ) -> AppInferenceResult:
     """
     Executes end-to-end prediction and explainability for a new user image.
@@ -169,6 +174,8 @@ def run_app_inference(
         TensorFlow device target ("auto", "gpu", or "cpu").
     pipeline : Optional[AppInferencePipeline]
         Optional pre-instantiated pipeline. If None, resolves via get_app_pipeline().
+    config : Optional[PSDConfig]
+        Optional configuration object. If None, derived by AEFCRCInferenceEngine from handoff.
 
     Returns
     -------
@@ -177,7 +184,7 @@ def run_app_inference(
     """
     # 1. Resolve pipeline
     if pipeline is None:
-        pipeline = get_app_pipeline(handoff_or_path=handoff_path, device=device)
+        pipeline = get_app_pipeline(handoff_or_path=handoff_path, device=device, config=config)
 
     engine = pipeline.engine
     gradcam_explainer = pipeline.gradcam_explainer
@@ -238,25 +245,25 @@ def run_app_inference(
             f"got {fused_1316.shape[0]}-D."
         )
 
-    # 6. Stage 4: Feature Selection Masking (194-D production BDA mask)
+    # 6. Stage 4: Feature Selection Masking (642-D production BDA mask, V2)
     try:
-        masked_194 = engine.apply_feature_mask(fused_1316)
+        masked_features = engine.apply_feature_mask(fused_1316)
     except Exception as exc:
         raise AppInferenceError(f"Feature selection masking failed: {exc}") from exc
 
     k_active = int(engine.mask.sum())
-    if masked_194.shape[1] != k_active:
+    if masked_features.shape[1] != k_active:
         raise AppInferenceError(
-            f"Masked feature dimension mismatch: expected {k_active}-D, got {masked_194.shape[1]}-D."
+            f"Masked feature dimension mismatch: expected {k_active}-D, got {masked_features.shape[1]}-D."
         )
 
     # 7. Stage 5: Base Random Forest Classifier Inference (raw prediction)
     try:
-        raw_probs = engine.predict_raw_probabilities(masked_194)
+        raw_probs = engine.predict_raw_probabilities(masked_features)
     except Exception as exc:
         raise AppInferenceError(f"Random Forest classification failed: {exc}") from exc
 
-    # 8. Stage 6: Probability Calibration (Platt Sigmoid Scaling)
+    # 8. Stage 6: Probability Calibration (Temperature Scaling, V2)
     try:
         calib_probs = engine.apply_calibration(raw_probs)
     except Exception as exc:
@@ -299,10 +306,10 @@ def run_app_inference(
     except Exception as exc:
         raise AppInferenceError(f"Grad-CAM explanation failed: {exc}") from exc
 
-    # 12. Explicit TreeSHAP Explanation (Random Forest 194-D tree_path_dependent)
+    # 12. Explicit TreeSHAP Explanation (Random Forest 642-D tree_path_dependent, V2)
     try:
         shap_result = shap_explainer.explain(
-            features=masked_194,
+            features=masked_features,
             target_class=pred_cls,
         )
         branch_rows = [b.to_dict() for b in shap_result.block_contributions]
@@ -335,7 +342,7 @@ def run_app_inference(
         top_features_df=top_features_df,
         diagnostics={
             "fused_dimension": int(fused_1316.shape[0]),
-            "masked_dimension": int(masked_194.shape[1]),
+            "masked_dimension": int(masked_features.shape[1]),
             "target_layer_name": g_result.target_layer_name,
             "shap_reconstruction_diff": shap_result.reconstruction_difference,
         },

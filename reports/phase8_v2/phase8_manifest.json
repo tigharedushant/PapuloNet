@@ -1,0 +1,93 @@
+{
+  "phase": "phase8_v2",
+  "run_id": "AEFCRC_P8_V2_20260921_124809_c9bee427",
+  "timestamp_utc": "2026-09-21T12:48:09.496611+00:00",
+  "status": "CALIBRATION_CERTIFIED",
+  "pipeline": {
+    "arm_id": "A7",
+    "classifier": "random_forest",
+    "feature_selection_method": "bda",
+    "representation_id": "efficientnet_b0_43d581b96f8ec368",
+    "source_experiment": "P3-V2-Focal"
+  },
+  "calibration": {
+    "method": "temperature_scaling",
+    "temperature": 0.32567700916361153,
+    "bounds": [
+      0.05,
+      20.0
+    ],
+    "optimization_objective": "unweighted_multiclass_negative_log_likelihood",
+    "fit_cohort_size": 123,
+    "generalization_cohort_size": 123,
+    "total_outer_validation_size": 246,
+    "fit_time_seconds": 0.007362535005086102,
+    "class_decision_invariance": {
+      "val_calib_changed_decisions": 0,
+      "val_conf_changed_decisions": 0,
+      "pooled_changed_decisions": 0,
+      "invariant_preserved": true
+    }
+  },
+  "metrics": {
+    "val_calib": {
+      "uncalibrated": {
+        "nll": 0.7677776097096296,
+        "brier": 0.4248521438949112,
+        "ece": 0.2553272357723577,
+        "macro_f1": 0.7319852426096296
+      },
+      "calibrated": {
+        "nll": 0.544060937827157,
+        "brier": 0.3294293341159368,
+        "ece": 0.07356978989931406,
+        "macro_f1": 0.7319852426096296
+      },
+      "delta_nll": -0.22371667188247257,
+      "delta_ece": -0.18175744587304365
+    },
+    "val_conf": {
+      "uncalibrated": {
+        "nll": 0.738314581593832,
+        "brier": 0.40276954103140805,
+        "ece": 0.28487798425603306,
+        "macro_f1": 0.8000861528822055
+      },
+      "calibrated": {
+        "nll": 0.4967317992805931,
+        "brier": 0.2916149558688107,
+        "ece": 0.08772138857092064,
+        "macro_f1": 0.8000861528822055
+      },
+      "delta_nll": -0.24158278231323893,
+      "delta_ece": -0.1971565956851124
+    },
+    "val_pooled": {
+      "uncalibrated": {
+        "nll": 0.7530460956517308,
+        "brier": 0.41381084246315963,
+        "ece": 0.2701026100141954,
+        "macro_f1": 0.7643241479988632
+      },
+      "calibrated": {
+        "nll": 0.5203963685538752,
+        "brier": 0.3105221449923737,
+        "ece": 0.05275205881622807,
+        "macro_f1": 0.7643241479988632
+      },
+      "delta_nll": -0.23264972709785559,
+      "delta_ece": -0.2173505511979673
+    }
+  },
+  "provenance": {
+    "upstream_phase7_run_id": "AEFCRC_P7_V2_20260921_074018_936e6e73",
+    "dataset_freeze_hash": "964d91f8178d5bb7123a7cc02388cd57912bba1e836b2a3ab70b9fa98441919f",
+    "fold_plan_hash": "3c54f09f834632f8f771b46d5a98fb773aa6ee78878b00a0c58806c575b8f7b9",
+    "locked_test_untouched": true,
+    "locked_test_records_count": 243
+  },
+  "artifacts": {
+    "conformal_handoff_joblib": "/mnt/c/Users/ASUS/Downloads/PSD_HP_AEF_CRC_PopuloNet/PSD_HP/artifacts/phase8_v2/conformal_handoff.joblib",
+    "temperature_scaler_joblib": "/mnt/c/Users/ASUS/Downloads/PSD_HP_AEF_CRC_PopuloNet/PSD_HP/artifacts/phase8_v2/temperature_scaler.joblib"
+  }
+}

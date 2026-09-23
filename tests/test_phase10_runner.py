@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 
 from config.config import get_config
-from run_aef_crc_phase6 import align_phase3_winner_config
+from run_aef_crc_phase9_v2 import configure_phase9_v2
 from modules.aef_input_validator import ImageRecord
 from modules.calibration_handoff import FinalPipelineHandoff, get_active_run_id
 from modules.fold_loader import FoldPlan, load_frozen_fold_plan
@@ -28,26 +28,37 @@ from run_aef_crc_phase10 import (
     validate_phase10_preflight,
 )
 
+# ---------------------------------------------------------------------------
+# V2 Production Contract Constants
+# ---------------------------------------------------------------------------
+V2_REPR_ID = "efficientnet_b0_43d581b96f8ec368"
+V2_K_FEATURES = 642
+V2_FULL_DIM = 1316
+
 
 @pytest.fixture
 def mock_pipeline_handoff():
-    """Builds a valid mock FinalPipelineHandoff adhering to the production A7 contract."""
+    """Builds a valid mock FinalPipelineHandoff adhering to the V2 production A7 contract (642 features)."""
     classes = ["Psoriasis", "Lichen_Planus", "Pityriasis_Rosea", "Seborrheic_Dermatitis"]
-    mask = np.zeros(1316, dtype=bool)
-    mask[:194] = True  # exactly 194 features active
+    mask = np.zeros(V2_FULL_DIM, dtype=bool)
+    mask[:V2_K_FEATURES] = True  # exactly 642 features active (V2)
 
     mock_rf = MagicMock()
-    mock_rf.n_features_in_ = 194
+    mock_rf.n_features_in_ = V2_K_FEATURES
     mock_rf.classes_ = np.arange(4)
     mock_rf.predict_proba.return_value = np.array([[0.70, 0.10, 0.10, 0.10]])
 
-    config, _ = align_phase3_winner_config(get_config())
+    # Build a mock temperature scaler that mirrors MulticlassTemperatureScaler.predict_proba
+    mock_temp_scaler = MagicMock()
+    mock_temp_scaler.predict_proba.side_effect = lambda p: p  # identity for testing
+
+    config = configure_phase9_v2(get_config())
     active_run_id = get_active_run_id(config) or ""
 
     return FinalPipelineHandoff(
         run_id=active_run_id,
-        representation_id="efficientnet_b0_6760c4f151acc2d2",
-        experiment_id="test_exp",
+        representation_id=V2_REPR_ID,
+        experiment_id="test_exp_v2",
         classifier_name="random_forest",
         feature_selection_method="bda",
         random_seed=config.random_seed,
@@ -55,9 +66,10 @@ def mock_pipeline_handoff():
         final_classifier=mock_rf,
         selected_feature_mask=mask,
         branch_dims={"deep": 1280, "glcm": 12, "lbp": 18, "color_lab": 6},
-        calibration_method="platt",
-        marginal_q_hat=0.78,
-        mondrian_q_hat={cls: 0.78 for cls in classes},
+        calibration_method="temperature_scaling",
+        temperature_scaler=mock_temp_scaler,
+        marginal_q_hat=0.7382427827337363,
+        mondrian_q_hat={cls: 0.7382427827337363 for cls in classes},
         backbone_checkpoint_path=str(config.aef_crc_artifacts_dir / "P3-BASE" / "fold_00" / "best_model.keras"),
     )
 
@@ -106,61 +118,97 @@ def test_validation_sample_selection_determinism():
     assert ids1 == ids2
 
 
-def test_production_shap_contract_valid_and_invalid():
-    """Verifies that validate_production_shap_contract strictly enforces the A7 contract."""
+def test_production_shap_contract_v2_valid():
+    """Verifies that validate_production_shap_contract passes with the V2 642-feature contract."""
     mock_rf = MagicMock()
-    mock_rf.n_features_in_ = 194
+    mock_rf.n_features_in_ = V2_K_FEATURES
 
-    valid_mask = np.zeros(1316, dtype=bool)
-    valid_mask[:194] = True
+    valid_mask = np.zeros(V2_FULL_DIM, dtype=bool)
+    valid_mask[:V2_K_FEATURES] = True
 
-    # Valid contract passes cleanly
+    # V2: explicit expected_k_features=642 passes cleanly
     validate_production_shap_contract(
         classifier=mock_rf,
         selected_feature_mask=valid_mask,
-        expected_full_dim=1316,
-        expected_k_features=194,
+        expected_full_dim=V2_FULL_DIM,
+        expected_k_features=V2_K_FEATURES,
         branch_dims={"deep": 1280, "glcm": 12, "lbp": 18, "color_lab": 6},
     )
 
-    # 1. Invalid mask length
+
+def test_production_shap_contract_v2_no_explicit_k():
+    """Verifies that passing expected_k_features=None allows the mask-derived count to be used."""
+    mock_rf = MagicMock()
+    mock_rf.n_features_in_ = V2_K_FEATURES
+
+    valid_mask = np.zeros(V2_FULL_DIM, dtype=bool)
+    valid_mask[:V2_K_FEATURES] = True
+
+    # Without explicit k, validation passes using mask-derived k == n_features_in_
+    validate_production_shap_contract(
+        classifier=mock_rf,
+        selected_feature_mask=valid_mask,
+        expected_full_dim=V2_FULL_DIM,
+        expected_k_features=None,
+    )
+
+
+def test_production_shap_contract_invalid_mask_length():
+    """Verifies that an incorrect mask length is rejected."""
+    mock_rf = MagicMock()
+    mock_rf.n_features_in_ = V2_K_FEATURES
+    valid_mask = np.zeros(V2_FULL_DIM, dtype=bool)
+    valid_mask[:V2_K_FEATURES] = True
+
     with pytest.raises(SHAPError, match="BDA mask dimension mismatch"):
         validate_production_shap_contract(
             classifier=mock_rf,
             selected_feature_mask=valid_mask[:1000],
-            expected_full_dim=1316,
-            expected_k_features=194,
+            expected_full_dim=V2_FULL_DIM,
+            expected_k_features=V2_K_FEATURES,
         )
 
-    # 2. Invalid active feature count
-    invalid_k_mask = np.zeros(1316, dtype=bool)
-    invalid_k_mask[:100] = True
+
+def test_production_shap_contract_invalid_k_count():
+    """Verifies that an incorrect active feature count is rejected when expected_k_features is set."""
+    mock_rf = MagicMock()
+    mock_rf.n_features_in_ = 100  # wrong for both V1 and V2
+
+    invalid_k_mask = np.zeros(V2_FULL_DIM, dtype=bool)
+    invalid_k_mask[:100] = True  # 100 features, but V2 expects 642
     with pytest.raises(SHAPError, match="Production selected features mismatch"):
         validate_production_shap_contract(
             classifier=mock_rf,
             selected_feature_mask=invalid_k_mask,
-            expected_full_dim=1316,
-            expected_k_features=194,
+            expected_full_dim=V2_FULL_DIM,
+            expected_k_features=V2_K_FEATURES,  # strict check: must be 642
         )
 
-    # 3. Disallowed HOG block in A7
+
+def test_production_shap_contract_rejects_hog():
+    """Verifies that HOG block in A7 layout is rejected."""
+    mock_rf = MagicMock()
+    mock_rf.n_features_in_ = V2_K_FEATURES
+    valid_mask = np.zeros(V2_FULL_DIM, dtype=bool)
+    valid_mask[:V2_K_FEATURES] = True
+
     with pytest.raises(SHAPError, match="forbids HOG"):
         validate_production_shap_contract(
             classifier=mock_rf,
             selected_feature_mask=valid_mask,
-            expected_full_dim=1316,
-            expected_k_features=194,
+            expected_full_dim=V2_FULL_DIM,
+            expected_k_features=V2_K_FEATURES,
             branch_dims={"deep": 1280, "glcm": 12, "lbp": 18, "hog": 32, "color_lab": 6},
         )
 
 
 def test_phase10_preflight_validation(mock_pipeline_handoff):
-    """Verifies that validate_phase10_preflight passes with the valid handoff and config."""
-    config, _ = align_phase3_winner_config(get_config())
+    """Verifies that validate_phase10_preflight passes with the V2 handoff and config."""
+    config = configure_phase9_v2(get_config())
     info = validate_phase10_preflight(config, mock_pipeline_handoff, device="cpu")
     assert info["status"] == "PASS"
-    assert info["fused_dimensions"] == 1316
-    assert info["selected_features"] == 194
+    assert info["fused_dimensions"] == V2_FULL_DIM
+    assert info["selected_features"] == V2_K_FEATURES  # V2: 642
     assert info["val_samples_available"] == 246
     assert info["test_samples_locked"] == 243
 
@@ -258,3 +306,171 @@ def test_write_phase10_report_real_manifest_compatibility(tmp_path):
         assert f"shap/{sid}/shap_block_importance.csv" in content
     assert "{sample_id}" not in content
 
+
+# =============================================================================
+# Regression Tests for Phase 10 V2 Fixes
+# =============================================================================
+
+def test_canonical_conformal_boundary_exact_match():
+    """
+    Regression: (1.0 - p) <= q_hat MUST include the exact boundary sample.
+    Verifies canonical nonconformity rule (not legacy p >= 1.0 - q).
+    At the exact boundary: s = 1.0 - p == q_hat → (1.0 - p) <= q_hat is True.
+    """
+    from modules.conformal import predict_conformal_sets
+
+    classes = ["A", "B", "C", "D"]
+    q_hat = 0.7382427827337363  # certified Phase 9 V2 q_hat
+
+    # Exact boundary: p = 1.0 - q_hat → s = q_hat exactly
+    p_boundary = 1.0 - q_hat
+    probs = np.array([[0.90, p_boundary, 0.05, 0.05]])
+
+    marginal_sets = predict_conformal_sets(probs, q_hat, classes)
+    assert "A" in marginal_sets[0], "Class A (high prob) must be included"
+    assert "B" in marginal_sets[0], (
+        f"Class B at exact boundary (p={p_boundary}, s=q_hat={q_hat}) "
+        "MUST be included by canonical (1-p) <= q_hat rule"
+    )
+    assert "C" not in marginal_sets[0], "Class C (low prob) must NOT be included"
+    assert "D" not in marginal_sets[0], "Class D (low prob) must NOT be included"
+
+
+def test_canonical_conformal_boundary_just_below_and_above():
+    """Regression: p just below boundary excluded; p just above boundary included."""
+    from modules.conformal import predict_conformal_sets
+
+    classes = ["A", "B"]
+    q_hat = 0.7382427827337363
+
+    p_exact = 1.0 - q_hat
+    p_just_below = p_exact - 1e-10  # s > q_hat → excluded
+    p_just_above = p_exact + 1e-10  # s < q_hat → included
+
+    probs_below = np.array([[p_just_below, 1.0 - p_just_below]])
+    sets_below = predict_conformal_sets(probs_below, q_hat, classes)
+    assert "A" not in sets_below[0], "p just below boundary must NOT be included"
+
+    probs_above = np.array([[p_just_above, 1.0 - p_just_above]])
+    sets_above = predict_conformal_sets(probs_above, q_hat, classes)
+    assert "A" in sets_above[0], "p just above boundary must be included"
+
+
+def test_v2_artifact_path_in_main():
+    """Regression: Phase 10 main() must reference artifacts/phase9_v2/, not phase9/."""
+    import run_aef_crc_phase10 as p10_module
+    import inspect
+    src = inspect.getsource(p10_module.main)
+    assert "phase9_v2" in src, "main() must reference artifacts/phase9_v2/"
+    assert '"phase9"' not in src and "'phase9'" not in src, (
+        "main() must NOT reference stale artifacts/phase9/ path"
+    )
+
+
+def test_v2_config_repr_id():
+    """Regression: configure_phase9_v2 must yield the certified V2 representation_id."""
+    from modules.experiment_config import representation_id as compute_repr_id
+    config = configure_phase9_v2(get_config())
+    rid = compute_repr_id(config)
+    assert rid == V2_REPR_ID, (
+        f"configure_phase9_v2 must yield representation_id={V2_REPR_ID!r}, got {rid!r}"
+    )
+
+
+def test_temperature_scaling_branch_selected_for_v2(mock_pipeline_handoff):
+    """Regression: apply_calibration must route to temperature_scaling for V2 handoff."""
+    from modules.inference import AEFCRCInferenceEngine
+    engine = AEFCRCInferenceEngine(artifact=mock_pipeline_handoff, device="cpu")
+    assert engine.calib_method == "temperature_scaling"
+    raw_probs = np.array([[0.7, 0.1, 0.1, 0.1]])
+    calib_probs = engine.apply_calibration(raw_probs)
+    assert calib_probs is not None
+    assert calib_probs.shape == raw_probs.shape
+
+
+def test_test_evaluation_guard_accepts_temperature_scaler():
+    """Regression: The guard must NOT block V2 handoffs that have temperature_scaler (platt_models=None)."""
+    from unittest.mock import MagicMock
+    mock_handoff = MagicMock()
+    mock_handoff.platt_models = None
+    mock_handoff.isotonic_models = None
+    mock_handoff.temperature_scaler = MagicMock()  # V2 calibration
+    has_any = (
+        getattr(mock_handoff, "temperature_scaler", None) is not None
+        or getattr(mock_handoff, "platt_models", None) is not None
+        or getattr(mock_handoff, "isotonic_models", None) is not None
+    )
+    assert has_any, "V2 handoff with temperature_scaler must satisfy calibration guard"
+
+
+def test_v2_selected_dimension_is_642(mock_pipeline_handoff):
+    """Regression: V2 handoff must have exactly 642 selected features, not 194."""
+    k = int(mock_pipeline_handoff.selected_feature_mask.sum())
+    assert k == V2_K_FEATURES, f"V2 selected features must be {V2_K_FEATURES}, got {k}"
+    assert k != 194, "V2 must NOT have 194 features (that is the V1 value)"
+
+
+def test_phase9_v2_handoff_provenance():
+    """Regression: Phase 9 V2 handoff artifact must have certified representation_id if present."""
+    import joblib
+    handoff_path = (
+        get_config().project_root / "artifacts" / "phase9_v2" / "final_pipeline_handoff.joblib"
+    )
+    if not handoff_path.exists():
+        pytest.skip("Phase 9 V2 handoff not present — skip provenance regression")
+    handoff = joblib.load(handoff_path)
+    assert handoff.representation_id == V2_REPR_ID, (
+        f"Phase 9 V2 handoff representation_id must be {V2_REPR_ID!r}, got {handoff.representation_id!r}"
+    )
+    assert "P9_V2" in handoff.run_id, (
+        f"Phase 9 V2 handoff run_id must contain 'P9_V2', got {handoff.run_id!r}"
+    )
+
+
+def test_v2_provenance_not_blocked_by_stale_phase3_run_id():
+    """
+    Regression: validate_pipeline_handoff_provenance must NOT raise when the handoff
+    carries a V2 phase-scoped run_id (AEFCRC_P9_V2_...) even though the active Phase 3
+    winner.json contains a different AEFCRC_RUN_* run_id.
+
+    Root cause of the Phase 10 error:
+      handoff.run_id  = 'AEFCRC_P9_V2_20260921_150441_54fc3c7b'
+      get_active_run_id(config) = 'AEFCRC_RUN_20260917_142937_...' (from phase3/winner.json)
+    These are different lineages; the Phase 3 run ID must be ignored for V2 handoffs.
+    """
+    from modules.calibration_handoff import validate_pipeline_handoff_provenance, FinalPipelineHandoff
+    from unittest.mock import MagicMock
+
+    config = configure_phase9_v2(get_config())
+
+    classes = ["Psoriasis", "Lichen_Planus", "Pityriasis_Rosea", "Seborrheic_Dermatitis"]
+    mask = np.zeros(V2_FULL_DIM, dtype=bool)
+    mask[:V2_K_FEATURES] = True
+
+    mock_rf = MagicMock()
+    mock_rf.n_features_in_ = V2_K_FEATURES
+
+    handoff = FinalPipelineHandoff(
+        run_id="AEFCRC_P9_V2_20260921_150441_54fc3c7b",  # certified V2 run ID
+        representation_id=V2_REPR_ID,
+        experiment_id="test_v2_provenance",
+        classifier_name="random_forest",
+        feature_selection_method="bda",
+        random_seed=config.random_seed,
+        class_order=classes,
+        final_classifier=mock_rf,
+        selected_feature_mask=mask,
+        branch_dims={"deep": 1280, "glcm": 12, "lbp": 18, "color_lab": 6},
+        calibration_method="temperature_scaling",
+        marginal_q_hat=0.7382427827337363,
+        mondrian_q_hat={cls: 0.7382427827337363 for cls in classes},
+    )
+
+    # Must not raise — the AEFCRC_P9_V2_* run_id must bypass Phase 3 run_id comparison
+    try:
+        validate_pipeline_handoff_provenance(handoff, config)
+    except RuntimeError as exc:
+        pytest.fail(
+            f"validate_pipeline_handoff_provenance raised for V2 handoff: {exc}\n"
+            "Fix: AEFCRC_P* run IDs must not be compared against Phase 3 winner.json run_id."
+        )

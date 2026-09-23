@@ -157,7 +157,7 @@ FROZEN_CLASSES = [
     "Pityriasis_Rosea",
     "Seborrheic_Dermatitis",
 ]
-DEFAULT_HANDOFF_PATH = Path("artifacts/phase9/final_pipeline_handoff.joblib")
+DEFAULT_HANDOFF_PATH = Path("artifacts/phase9_v2/final_pipeline_handoff.joblib")
 
 
 @st.cache_resource(show_spinner=False)
@@ -338,7 +338,7 @@ if items_to_analyze:
             st.stop()
 
     for item in items_to_analyze:
-        with st.spinner(f"Analyzing {item['name']} (EfficientNet-B0 + A7 Fusion + BDA + Platt + Conformal + XAI)..."):
+        with st.spinner(f"Analyzing {item['name']} (EfficientNet-B0 + A7 Fusion + BDA + Temperature Scaling + Conformal + XAI)..."):
             try:
                 res = run_app_inference(
                     image_input=item["bytes"],
@@ -376,14 +376,14 @@ with m_col1:
     st.metric(
         label="Predicted Primary Disease",
         value=res.predicted_class.replace("_", " "),
-        help="Top-1 point prediction derived from Platt-calibrated probabilities.",
+        help="Top-1 point prediction derived from Temperature Scaling-calibrated probabilities.",
     )
 
 with m_col2:
     st.metric(
         label="Calibrated Confidence",
         value=f"{res.calibrated_confidence * 100:.1f}%",
-        help="Post-processed probability via Phase 8 Platt sigmoid scaling.",
+        help="Post-processed probability via Phase 8 Temperature Scaling.",
     )
 
 with m_col3:
@@ -477,7 +477,7 @@ with xai_tab_gradcam:
             <strong>Scientific Boundary:</strong> Grad-CAM computes gradient-weighted class activation maps targeting the 
             <strong>pre-softmax logit</strong> of the Phase 3 EfficientNet-B0 disease head. It identifies spatial morphological 
             lesion patterns contributing to the visual feature extraction layer. 
-            <em>It does not directly explain the Random Forest classifier, Platt probability calibration, or conformal prediction boundaries.</em>
+            <em>It does not directly explain the Random Forest classifier, Temperature Scaling probability calibration, or conformal prediction boundaries.</em>
         </div>
         """,
         unsafe_allow_html=True,
@@ -514,9 +514,9 @@ with xai_tab_shap:
         """
         <div class="desc-text">
             <strong>Scientific Boundary:</strong> TreeSHAP applies path-dependent feature perturbation on the production Random Forest 
-            across the <strong>194 BDA-selected features</strong>. It decomposes the model's <strong>raw uncalibrated ensemble prediction</strong> 
+            across the <strong>642 BDA-selected features</strong>. It decomposes the model's <strong>raw uncalibrated ensemble prediction</strong> 
             into branch-level and feature-level attributions. 
-            <em>TreeSHAP explains the Random Forest decisions, not the CNN backbone, Platt calibrator, or conformal prediction thresholds.</em>
+            <em>TreeSHAP explains the Random Forest decisions, not the CNN backbone, Temperature Scaling calibrator, or conformal prediction thresholds.</em>
         </div>
         """,
         unsafe_allow_html=True,
@@ -547,7 +547,7 @@ with xai_tab_shap:
             )
             st.bar_chart(b_chart, horizontal=True)
 
-    st.markdown("#### Top Individual Feature Attributions (from 194-D Selected Subspace)")
+    st.markdown("#### Top Individual Feature Attributions (from 642-D Selected Subspace)")
     if not res.top_features_df.empty:
         st.dataframe(res.top_features_df.head(15), hide_index=True, use_container_width=True)
     else:
@@ -558,6 +558,6 @@ with xai_tab_shap:
 # -----------------------------------------------------------------------------
 st.markdown("---")
 st.caption(
-    "AEF-CRC Phase 10 Production Deployment &bull; Model Provenance: `efficientnet_b0_6760c4f151acc2d2` "
-    "&bull; 1316-D Multimodal Representation (A7) &bull; 194-D BDA Mask &bull; Platt Calibration &bull; 90% Nominal Split-Conformal Coverage"
+    "AEF-CRC Phase 10 V2 Production Deployment &bull; Model Provenance: `efficientnet_b0_43d581b96f8ec368` "
+    "&bull; 1316-D Multimodal Representation (A7) &bull; 642-D BDA Mask &bull; Temperature Scaling &bull; 90% Nominal Split-Conformal Coverage"
 )
