@@ -1,10 +1,13 @@
 target_class,source_dataset,final_image_count
+Psoriasis,AtlasISIC31,132
 Psoriasis,DermNet,779
-Psoriasis,TOTAL,779
+Psoriasis,TOTAL,911
+Lichen_Planus,AtlasISIC31,132
 Lichen_Planus,DermNet,236
-Lichen_Planus,TOTAL,236
+Lichen_Planus,TOTAL,368
+Pityriasis_Rosea,AtlasISIC31,128
 Pityriasis_Rosea,DermNet,103
-Pityriasis_Rosea,TOTAL,103
+Pityriasis_Rosea,TOTAL,231
 Seborrheic_Dermatitis,DermNet,83
 Seborrheic_Dermatitis,SkinDisNet,306
 Seborrheic_Dermatitis,TOTAL,389

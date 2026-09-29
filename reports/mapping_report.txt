@@ -1,7 +1,7 @@
 PSD-HP Class Mapping Report
 ========================================
 
-Total folders resolved: 13
+Total folders resolved: 16
 UNKNOWN (not in class_mapping.json): 1
 
 [AMBIGUOUS_MERGED] — 1 folder(s), 463 image(s)
@@ -15,14 +15,17 @@ UNKNOWN (not in class_mapping.json): 1
     SkinDisNet/Scabies (5488 images)
     SkinDisNet/Tinea_Corporis (4400 images)
 
-[Lichen_Planus] — 1 folder(s), 251 image(s)
+[Lichen_Planus] — 2 folder(s), 383 image(s)
     DermNet/Lichen_Planus (251 images)
+    AtlasISIC31/Lichen Planus (132 images)
 
-[Pityriasis_Rosea] — 1 folder(s), 129 image(s)
+[Pityriasis_Rosea] — 2 folder(s), 258 image(s)
     DermNet/Pityriasis_Rosea (129 images)
+    AtlasISIC31/Pityriasis Rosea (129 images)
 
-[Psoriasis] — 1 folder(s), 829 image(s)
+[Psoriasis] — 2 folder(s), 961 image(s)
     DermNet/Psoriasis (829 images)
+    AtlasISIC31/Psoriasis (132 images)
 
 [Seborrheic_Dermatitis] — 2 folder(s), 1349 image(s)
     DermNet/Seborrheic_Dermatitis (85 images)

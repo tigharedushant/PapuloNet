@@ -4,7 +4,7 @@ PSD-HP Train/Val/Test Split Report
 Ratios: train=0.7, val=0.15, test=0.15 | seed=42
 Augmentation-leakage fix: every source_type='augmented' image is confined to train (never val/test) because no parent_original_id exists to pair it safely. Classes with augmented images will show a train ratio ABOVE the nominal ratio -- this is intentional, not a bug; see 'forced into train' counts below.
 
-Psoriasis: train=545, val=117, test=117, total=779
-Lichen_Planus: train=165, val=35, test=36, total=236
-Pityriasis_Rosea: train=72, val=15, test=16, total=103
+Psoriasis: train=638, val=137, test=136, total=911
+Lichen_Planus: train=258, val=55, test=55, total=368
+Pityriasis_Rosea: train=162, val=35, test=34, total=231
 Seborrheic_Dermatitis: train=352, val=19, test=18, total=389, 264 forced into train as augmented-source

@@ -37,9 +37,10 @@ Dataset: Curated32
 
 Dataset: AtlasISIC31
   Path: C:\Users\manis\Desktop\Final_Year_Project\PapuloNet\datasets\atlas_isic31
-  Status: FAIL
-  Class labels found: 0
-  Total readable images: 0
+  Status: PASS
+  Class labels found: 3
+    - Lichen Planus: 132 readable image(s), 0 corrupted
+    - Pityriasis Rosea: 129 readable image(s), 0 corrupted
+    - Psoriasis: 132 readable image(s), 0 corrupted
+  Total readable images: 393
   Total corrupted images: 0
-  Errors:
-    - Path does not exist: C:\Users\manis\Desktop\Final_Year_Project\PapuloNet\datasets\atlas_isic31
