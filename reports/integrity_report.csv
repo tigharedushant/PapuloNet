@@ -1,7 +1,7 @@
 metric,value
-total_records,3414
-final,1899
-rejected,420
+total_records,3021
+final,1507
+rejected,419
 duplicate,632
 review,463
 unaccounted,0

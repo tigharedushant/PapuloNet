@@ -1,7 +1,7 @@
 {
   "framework": "PSD-HP",
   "framework_version": "1.0.0",
-  "created_at": "2026-08-17T13:35:45+00:00",
+  "created_at": "2026-09-28T13:59:35+00:00",
   "datasets_used": [
     "DermNet",
     "SkinDisNet",
@@ -9,11 +9,11 @@
     "AtlasISIC31"
   ],
   "final_image_counts_per_class": {
-    "Psoriasis": 911,
-    "Lichen_Planus": 368,
-    "Pityriasis_Rosea": 231,
+    "Psoriasis": 779,
+    "Lichen_Planus": 236,
+    "Pityriasis_Rosea": 103,
     "Seborrheic_Dermatitis": 389
   },
-  "final_total_images": 1899,
-  "metadata_csv_sha256": "606bdb9d5c8f622474ff29e6beb0dfa85d775d31d6dcd8261d6fbc0727d64e16"
+  "final_total_images": 1507,
+  "metadata_csv_sha256": "f05cca897edf12a981707fce0f8b73663be3e1fc847b74baf61c2a4bd0de086b"
 }

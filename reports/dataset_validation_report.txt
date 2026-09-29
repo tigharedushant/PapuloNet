@@ -2,7 +2,7 @@ PSD-HP Dataset Validation Report
 ========================================
 
 Dataset: DermNet
-  Path: C:\Users\ASUS\Downloads\PSD_HP_AEF_CRC_Phase12\PSD_HP\datasets\dermnet
+  Path: C:\Users\manis\Desktop\Final_Year_Project\PapuloNet\datasets\dermnet
   Status: PASS
   Class labels found: 6
     - Psoriasis pictures Lichen Planus and related diseases: 463 readable image(s), 0 corrupted
@@ -15,7 +15,7 @@ Dataset: DermNet
   Total corrupted images: 0
 
 Dataset: SkinDisNet
-  Path: C:\Users\ASUS\Downloads\PSD_HP_AEF_CRC_Phase12\PSD_HP\datasets\skindisnet
+  Path: C:\Users\manis\Desktop\Final_Year_Project\PapuloNet\datasets\skindisnet
   Status: PASS
   Class labels found: 6
     - Atopic_Dermatitis: 1120 readable image(s), 0 corrupted
@@ -28,7 +28,7 @@ Dataset: SkinDisNet
   Total corrupted images: 0
 
 Dataset: Curated32
-  Path: C:\Users\ASUS\Downloads\PSD_HP_AEF_CRC_Phase12\PSD_HP\datasets\curated32
+  Path: C:\Users\manis\Desktop\Final_Year_Project\PapuloNet\datasets\curated32
   Status: PASS
   Class labels found: 1
     - 32_CSD: 951 readable image(s), 0 corrupted
@@ -36,11 +36,10 @@ Dataset: Curated32
   Total corrupted images: 0
 
 Dataset: AtlasISIC31
-  Path: C:\Users\ASUS\Downloads\PSD_HP_AEF_CRC_Phase12\PSD_HP\datasets\atlas_isic31
-  Status: PASS
-  Class labels found: 3
-    - Lichen Planus: 132 readable image(s), 0 corrupted
-    - Pityriasis Rosea: 129 readable image(s), 0 corrupted
-    - Psoriasis: 132 readable image(s), 0 corrupted
-  Total readable images: 393
+  Path: C:\Users\manis\Desktop\Final_Year_Project\PapuloNet\datasets\atlas_isic31
+  Status: FAIL
+  Class labels found: 0
+  Total readable images: 0
   Total corrupted images: 0
+  Errors:
+    - Path does not exist: C:\Users\manis\Desktop\Final_Year_Project\PapuloNet\datasets\atlas_isic31

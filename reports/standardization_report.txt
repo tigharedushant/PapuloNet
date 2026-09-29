@@ -3,7 +3,7 @@ PSD-HP Image Standardization Report
 
 Target size: 224x224 (aspect-ratio-preserving pad), format: JPEG
 
-Psoriasis: 911 image(s) standardized
-Lichen_Planus: 368 image(s) standardized
-Pityriasis_Rosea: 231 image(s) standardized
+Psoriasis: 779 image(s) standardized
+Lichen_Planus: 236 image(s) standardized
+Pityriasis_Rosea: 103 image(s) standardized
 Seborrheic_Dermatitis: 389 image(s) standardized

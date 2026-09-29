@@ -2,22 +2,22 @@
   "datasets": [
     {
       "name": "DermNet",
-      "path": "C:\\Users\\ASUS\\Downloads\\PSD_HP_AEF_CRC_Phase12\\PSD_HP\\datasets\\dermnet",
+      "path": "C:\\Users\\manis\\Desktop\\Final_Year_Project\\PapuloNet\\datasets\\dermnet",
       "description": "Kaggle shubhamgoel27/dermnet \u2014 23-class clinical scrape"
     },
     {
       "name": "SkinDisNet",
-      "path": "C:\\Users\\ASUS\\Downloads\\PSD_HP_AEF_CRC_Phase12\\PSD_HP\\datasets\\skindisnet",
+      "path": "C:\\Users\\manis\\Desktop\\Final_Year_Project\\PapuloNet\\datasets\\skindisnet",
       "description": "Mendeley yj3md44hxg \u2014 6-class clinical set, incl. Seborrheic Dermatitis"
     },
     {
       "name": "Curated32",
-      "path": "C:\\Users\\ASUS\\Downloads\\PSD_HP_AEF_CRC_Phase12\\PSD_HP\\datasets\\curated32",
+      "path": "C:\\Users\\manis\\Desktop\\Final_Year_Project\\PapuloNet\\datasets\\curated32",
       "description": "Mendeley pgd42j3h5c \u2014 32-category clinical/dermoscopic set"
     },
     {
       "name": "AtlasISIC31",
-      "path": "C:\\Users\\ASUS\\Downloads\\PSD_HP_AEF_CRC_Phase12\\PSD_HP\\datasets\\atlas_isic31",
+      "path": "C:\\Users\\manis\\Desktop\\Final_Year_Project\\PapuloNet\\datasets\\atlas_isic31",
       "description": "ISIC-derived 31-class atlas \u2014 dataset_root/{train,test}/<class>/, one disease per folder (no filename reclassification needed)"
     }
   ],

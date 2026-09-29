@@ -1,5 +1,5 @@
 target_class,extracted,duplicates_removed,quality_rejected,final
-Psoriasis,961,36,14,911
-Lichen_Planus,383,5,10,368
-Pityriasis_Rosea,258,4,23,231
+Psoriasis,829,36,14,779
+Lichen_Planus,251,5,10,236
+Pityriasis_Rosea,129,4,22,103
 Seborrheic_Dermatitis,1349,587,373,389

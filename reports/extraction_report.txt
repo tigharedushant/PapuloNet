@@ -1,9 +1,9 @@
 PSD-HP Target Class Extraction Report
 ========================================
 
-Psoriasis: 961 image(s) extracted
-Lichen_Planus: 383 image(s) extracted
-Pityriasis_Rosea: 258 image(s) extracted
+Psoriasis: 829 image(s) extracted
+Lichen_Planus: 251 image(s) extracted
+Pityriasis_Rosea: 129 image(s) extracted
 Seborrheic_Dermatitis: 1349 image(s) extracted
 
 Ambiguous (routed for manual review): 463 image(s)
